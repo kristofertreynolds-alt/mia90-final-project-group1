@@ -20,3 +20,8 @@ def handle_hello():
     }
 
     return jsonify(response_body), 200
+
+
+@api.route('/meals', methods=['GET'])
+def get_meals():
+    print("oh god help me!!!!!")
