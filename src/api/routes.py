@@ -81,8 +81,8 @@ def user_login():
     return jsonify({"access_token": access_token}), 201
 
 
-########### USER PROTECTED AREA ##########
-@api.route("/protected", methods=["GET"])
+########### USER PROFILE AREA ##########
+@api.route("/profile", methods=["GET"])
 @jwt_required()
 def protected(): 
     # Access the identity of the current user with get_jwt_identity
@@ -100,11 +100,13 @@ def protected():
 
 
 ########## MEALS -> GET ########## /meals/1
-@api.route('/meals/<int:user_id>', methods=['GET'])
-def get_meals(user_id):
+@api.route('/meals', methods=['GET'])
+@jwt_required()
+def get_meals():
+    userID = get_jwt_identity()
     statement = (
         select(Meal)
-        .where(User.id == user_id)
+        .where(User.id == userID)
     )
     meal = db.session.execute(statement).scalars().all()
     meals = []
@@ -117,13 +119,15 @@ def get_meals(user_id):
 
 
 ########## MEALS -> POST ########## /meals/1
-@api.route('/meals/<int:user_id>', methods=['POST'])
-def post_meals(user_id):
+@api.route('/meals', methods=['POST'])
+@jwt_required()
+def post_meals():
     body = request.json
     if not body: 
         return jsonify({"msg": "sorry no meal to add to database"}), 400
     
-    user = db.session.execute(select(User).where(User.id == user_id)).scalar_one_or_none()
+    userID = get_jwt_identity()
+    user = db.session.execute(select(User).where(User.id == userID)).scalar_one_or_none()
     if not user:
         return jsonify({"msg": "sorry no user was found"}), 400
     
@@ -135,19 +139,18 @@ def post_meals(user_id):
     ## STEP 6: THEN CREATE MEAL AND NUTRITION OBJECT AND POST TO THE DATABASE
 
     meal = Meal(
-        id = user_id,
+        user_id = userID,
         description = body.get("description")
     )
     db.session.add(meal)
     db.session.commit()
 
 #    nutrition = Nutrition(
-#        meal_id = meal.id,
+#       meal_id = meal.id,
 #       calories = DATA-RETURNED-BY-CLAUDE-API, 
 #       protein = DATA-RETURNED-BY-CLAUDE-API, 
 #       carbs = DATA-RETURNED-BY-CLAUDE-API, 
 #       fat = DATA-RETURNED-BY-CLAUDE-API, 
-#        
 #    )
 
     meal_dictionary = meal.serialize()
