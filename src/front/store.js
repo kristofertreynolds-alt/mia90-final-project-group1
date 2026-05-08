@@ -1,6 +1,7 @@
 export const initialStore=()=>{
   return{
     message: null,
+    meals: [],
     todos: [
       {
         id: 1,
@@ -18,6 +19,13 @@ export const initialStore=()=>{
 
 export default function storeReducer(store, action = {}) {
   switch(action.type){
+    case 'login':
+      sessionStorage.setItem("token", action.payload.token);
+      return {
+        ...store,
+        token: action.payload.token,
+        user: action.payload.user
+      };
     case 'set_hello':
       return {
         ...store,
