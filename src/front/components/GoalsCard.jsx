@@ -22,9 +22,12 @@ function GoalRow({ name, value, goal, color, unit = "" }) {
 }
 
 export default function GoalsCard({ totals, goals }) {
+  const calPct = Math.min(Math.round((totals.calories / goals.calories) * 100), 100);
   return (
     <div className="goals-card">
-      <div className="goals-progress-label">Progress</div>
+      <div className="goals-progress-label">
+        Progress · <span style={{ color: "#1a1a1a" }}>{calPct}% of daily calories used</span>
+      </div>
       <div className="goals-title">Goals</div>
       <GoalRow name="Calories" value={totals.calories} goal={goals.calories} color="#f97316" />
       <GoalRow name="Protein"  value={totals.protein}  goal={goals.protein}  color="#3b82f6" unit="g" />

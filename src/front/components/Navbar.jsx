@@ -5,20 +5,20 @@ export const Navbar = ({ userName = "JD" }) => {
   return (
     <div className="header-card">
 
-      <Link to="/">
-        <svg width="130" height="40" viewBox="0 0 130 40" xmlns="http://www.w3.org/2000/svg">
-          <path d="M20 3 A17 17 0 1 1 6.4 32.3" fill="none" stroke="#f97316" strokeWidth="4" strokeLinecap="round" />
-          <circle cx="6.4" cy="32.3" r="2.8" fill="#f97316" />
-          <rect x="17.5" y="24" width="5" height="11" rx="2.5" fill="#1a1a1a" />
-          <rect x="17.5" y="15" width="5" height="10" rx="1.5" fill="#1a1a1a" />
-          <rect x="11"   y="6"  width="4" height="11" rx="2"   fill="#1a1a1a" />
-          <rect x="17.5" y="6"  width="4" height="11" rx="2"   fill="#1a1a1a" />
-          <rect x="24"   y="6"  width="4" height="11" rx="2"   fill="#1a1a1a" />
-          <circle cx="33.5" cy="7.5" r="4"   fill="#f97316" />
-          <circle cx="33.5" cy="7.5" r="1.8" fill="#fff" />
-          <text x="46" y="17" style={{ fontSize: 15, fontWeight: 500, fill: "#f97316", fontFamily: "system-ui, sans-serif" }}>caloric</text>
-          <text x="46" y="35" style={{ fontSize: 15, fontWeight: 400, fill: "#1a1a1a", fontFamily: "system-ui, sans-serif" }}>AI</text>
-        </svg>
+      <Link to="/" style={{ textDecoration: "none" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+            <rect x="0" y="0" width="40" height="40" rx="10" fill="#f97316" />
+            <text x="17" y="29" style={{ fontSize: 24, fontWeight: 500, fill: "#fff", fontFamily: "system-ui, sans-serif" }}>c</text>
+            <circle cx="31" cy="9"  r="4"   fill="#fff" opacity="0.9" />
+            <circle cx="36" cy="16" r="2.5" fill="#fff" opacity="0.55" />
+            <circle cx="35" cy="24" r="2"   fill="#fff" opacity="0.3" />
+          </svg>
+          <div>
+            <div style={{ fontSize: 18, fontWeight: 500, color: "#f97316", lineHeight: 1.1, fontFamily: "system-ui, sans-serif" }}>caloric</div>
+            <div style={{ fontSize: 18, fontWeight: 400, color: "#1a1a1a", lineHeight: 1.1, fontFamily: "system-ui, sans-serif" }}>AI</div>
+          </div>
+        </div>
       </Link>
 
       <div style={{

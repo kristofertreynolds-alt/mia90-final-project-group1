@@ -36,12 +36,16 @@ export const Home = () => {
 
   const handleLogMeal = (newMeal) => setMeals((prev) => [newMeal, ...prev]);
   const handleDeleteMeal = (id) => setMeals((prev) => prev.filter((m) => m.id !== id));
+  
 
   return (
     <div className="app-bg">
       <div className="container-app">
         <Navbar />
-        <GreetingCard caloriesPercent={Math.round((totals.calories / dailyGoals.calories) * 100)} />
+        <GreetingCard
+          caloriesPercent={Math.round((totals.calories / dailyGoals.calories) * 100)}
+          userName="Jorge"
+        />
         <MealLogger onLogMeal={handleLogMeal} />
         <MacrosCard totals={totals} goals={dailyGoals} />
         <GoalsCard totals={totals} goals={dailyGoals} />
