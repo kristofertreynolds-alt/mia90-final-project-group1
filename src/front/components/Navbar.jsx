@@ -1,19 +1,46 @@
-import { Link } from "react-router-dom";
+import React from "react";
 
-export const Navbar = () => {
+export default function Navbar({ userName = "JD" }) {
+  return (
+    <nav style={{
+      background: "#fff",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      padding: "10px 20px 14px",
+      borderBottom: "0.5px solid #efefef",
+    }}>
 
-	return (
-		<nav className="navbar navbar-light bg-light">
-			<div className="container">
-				<Link to="/">
-					<span className="navbar-brand mb-0 h1">React Boilerplate</span>
-				</Link>
-				<div className="ml-auto">
-					<Link to="/demo">
-						<button className="btn btn-primary">Check the Context in action</button>
-					</Link>
-				</div>
-			</div>
-		</nav>
-	);
-};
+      <svg width="130" height="40" viewBox="0 0 130 40" xmlns="http://www.w3.org/2000/svg">
+        <path d="M20 3 A17 17 0 1 1 6.4 32.3" fill="none" stroke="#f97316" strokeWidth="4" strokeLinecap="round" />
+        <circle cx="6.4" cy="32.3" r="2.8" fill="#f97316" />
+        <rect x="17.5" y="24" width="5" height="11" rx="2.5" fill="#1a1a1a" />
+        <rect x="17.5" y="15" width="5" height="10" rx="1.5" fill="#1a1a1a" />
+        <rect x="11"   y="6"  width="4" height="11" rx="2"   fill="#1a1a1a" />
+        <rect x="17.5" y="6"  width="4" height="11" rx="2"   fill="#1a1a1a" />
+        <rect x="24"   y="6"  width="4" height="11" rx="2"   fill="#1a1a1a" />
+        <circle cx="33.5" cy="7.5" r="4"   fill="#f97316" />
+        <circle cx="33.5" cy="7.5" r="1.8" fill="#fff" />
+        <text x="46" y="17" style={{ fontSize: 15, fontWeight: 500, fill: "#f97316", fontFamily: "system-ui, sans-serif" }}>caloric</text>
+        <text x="46" y="35" style={{ fontSize: 15, fontWeight: 400, fill: "#1a1a1a", fontFamily: "system-ui, sans-serif" }}>AI</text>
+      </svg>
+
+      <div style={{
+        width: 34,
+        height: 34,
+        borderRadius: "50%",
+        background: "#fde8d8",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: 11,
+        fontWeight: 500,
+        color: "#c2440a",
+        cursor: "pointer",
+      }}>
+        {userName}
+      </div>
+
+    </nav>
+  );
+}

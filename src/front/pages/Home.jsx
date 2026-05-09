@@ -1,52 +1,50 @@
-import React, { useEffect } from "react"
-import rigoImageUrl from "../assets/img/rigo-baby.jpg";
-import useGlobalReducer from "../hooks/useGlobalReducer.jsx";
+import { useState } from "react";
+import GreetingCard from "../components/GreetingCard";
+import MealLogger from "../components/MealLogger";
+import MacrosCard from "../components/MacrosCard";
+import GoalsCard from "../components/GoalsCard";
+import LoggedMeals from "../components/LoggedMeals";
+
+const dailyGoals = { calories: 2000, protein: 150, carbs: 250, fat: 65 };
+
+const initialMeals = [
+  {
+    id: 1, type: "Snack", icon: "🍎",
+    description: "One bowl of vanilla ice cream.",
+    time: "11:00 PM", calories: 279, protein: 5, carbs: 32, fat: 15,
+  },
+  {
+    id: 2, type: "Lunch", icon: "🌤️",
+    description: "One bowl of caesar salad with 4 oz of grilled chicken",
+    time: "10:33 PM", calories: 661, protein: 48, carbs: 25, fat: 42,
+  },
+];
 
 export const Home = () => {
+  const [meals, setMeals] = useState(initialMeals);
 
-	const { store, dispatch } = useGlobalReducer()
+  const totals = meals.reduce(
+    (acc, meal) => ({
+      calories: acc.calories + meal.calories,
+      protein: acc.protein + meal.protein,
+      carbs: acc.carbs + meal.carbs,
+      fat: acc.fat + meal.fat,
+    }),
+    { calories: 0, protein: 0, carbs: 0, fat: 0 }
+  );
 
-	const loadMessage = async () => {
-		try {
-			const backendUrl = import.meta.env.VITE_BACKEND_URL
+  const handleLogMeal = (newMeal) => setMeals((prev) => [newMeal, ...prev]);
+  const handleDeleteMeal = (id) => setMeals((prev) => prev.filter((m) => m.id !== id));
 
-			if (!backendUrl) throw new Error("VITE_BACKEND_URL is not defined in .env file")
-
-			const response = await fetch(backendUrl + "/api/hello")
-			const data = await response.json()
-
-			if (response.ok) dispatch({ type: "set_hello", payload: data.message })
-
-			return data
-
-		} catch (error) {
-			if (error.message) throw new Error(
-				`Could not fetch the message from the backend.
-				Please check if the backend is running and the backend port is public.`
-			);
-		}
-
-	}
-
-	useEffect(() => {
-		loadMessage()
-	}, [])
-
-	return (
-		<div className="text-center mt-5">
-			<h1 className="display-4">Hello Rigo!!</h1>
-			<p className="lead">
-				<img src={rigoImageUrl} className="img-fluid rounded-circle mb-3" alt="Rigo Baby" />
-			</p>
-			<div className="alert alert-info">
-				{store.message ? (
-					<span>{store.message}</span>
-				) : (
-					<span className="text-danger">
-						Loading message from the backend (make sure your python 🐍 backend is running)...
-					</span>
-				)}
-			</div>
-		</div>
-	);
-}; 
+  return (
+    <div className="app-bg">
+      <div className="container-app">
+        <GreetingCard caloriesPercent={Math.round((totals.calories / dailyGoals.calories) * 100)} />
+        <MealLogger onLogMeal={handleLogMeal} />
+        <MacrosCard totals={totals} goals={dailyGoals} />
+        <GoalsCard totals={totals} goals={dailyGoals} />
+        <LoggedMeals meals={meals} onDelete={handleDeleteMeal} />
+      </div>
+    </div>
+  );
+};
