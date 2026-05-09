@@ -4,6 +4,7 @@ import MealLogger from "../components/MealLogger";
 import MacrosCard from "../components/MacrosCard";
 import GoalsCard from "../components/GoalsCard";
 import LoggedMeals from "../components/LoggedMeals";
+import { Navbar } from "../components/Navbar";
 
 const dailyGoals = { calories: 2000, protein: 150, carbs: 250, fat: 65 };
 
@@ -39,6 +40,7 @@ export const Home = () => {
   return (
     <div className="app-bg">
       <div className="container-app">
+        <Navbar />
         <GreetingCard caloriesPercent={Math.round((totals.calories / dailyGoals.calories) * 100)} />
         <MealLogger onLogMeal={handleLogMeal} />
         <MacrosCard totals={totals} goals={dailyGoals} />
@@ -46,5 +48,5 @@ export const Home = () => {
         <LoggedMeals meals={meals} onDelete={handleDeleteMeal} />
       </div>
     </div>
-  );
+);
 };
