@@ -63,11 +63,25 @@ export default function MealLogger({ onLogMeal }) {
       />
       <div className="meal-logger-footer">
         <div className="meal-logger-icons">
-          <button className="icon-btn">🎙️</button>
-          <button className="icon-btn">📷</button>
+          <button className="icon-btn" title="Voice input">
+            <svg width="18" height="18" fill="none" stroke="#aaa" strokeWidth="2" viewBox="0 0 24 24">
+              <rect x="9" y="2" width="6" height="11" rx="3"/>
+              <path d="M5 10a7 7 0 0 0 14 0M12 19v3M9 22h6"/>
+            </svg>
+          </button>
+          <button className="icon-btn" title="Photo">
+            <svg width="18" height="18" fill="none" stroke="#aaa" strokeWidth="2" viewBox="0 0 24 24">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+              <circle cx="12" cy="13" r="4"/>
+            </svg>
+          </button>
         </div>
         <button className="log-meal-btn" onClick={handleLog}>
-          ✈️ Log meal
+          <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <line x1="22" y1="2" x2="11" y2="13"/>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
+          Log meal
         </button>
       </div>
     </div>
