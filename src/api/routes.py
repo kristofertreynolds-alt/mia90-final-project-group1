@@ -10,6 +10,9 @@ from flask_jwt_extended import create_access_token
 from flask_jwt_extended import get_jwt_identity
 from flask_jwt_extended import jwt_required
 from flask_jwt_extended import JWTManager
+import anthropic
+import json
+import os
 
 api = Blueprint('api', __name__)
 
@@ -38,9 +41,6 @@ def user_signup():
     if not password:
         return jsonify({"msg": "sorry no password"}), 400
     
-    # hashPassword = password.hashfunction() 
-    
-    # I dont understand the key value pairs how to Call User Class and add user???
     newUser = User(
         email = email,
         password = password,
@@ -51,11 +51,9 @@ def user_signup():
     return jsonify(newUser.serialize()), 201
 
 
-
 ########### USER LOGIN ########## 
 @api.route('/login', methods=['POST'])
 def user_login():
-    #Check HTTP Request
     body = request.json
     if not body:
         return jsonify({"msg": "sorry your request is empty"}), 400
@@ -66,7 +64,6 @@ def user_login():
     if not password:
         return jsonify({"msg": "sorry no password"}), 400
     
-    #Check if User is in Database
     user = db.session.execute(
         select(User)
         .where(User.email == email)
@@ -76,7 +73,6 @@ def user_login():
     if not user:
         return jsonify({"msg": "sorry user does not exist, please signup"}), 400
     
-    #Create Token to Login
     access_token = create_access_token(identity=email)
     return jsonify({"access_token": access_token}), 201
 
@@ -85,21 +81,15 @@ def user_login():
 @api.route("/profile", methods=["GET"])
 @jwt_required()
 def protected(): 
-    # Access the identity of the current user with get_jwt_identity
     current_user = get_jwt_identity()
-
-    # Get User Information from Database
     user = db.session.execute(
         select(User)
         .where(User.email == current_user)
     ).scalar_one_or_none()
-
     return jsonify(user.serialize()), 200
 
 
-
-
-########## MEALS -> GET ########## /meals/1
+########## MEALS -> GET ##########
 @api.route('/meals', methods=['GET'])
 @jwt_required()
 def get_meals():
@@ -116,9 +106,7 @@ def get_meals():
     return jsonify(meals), 200
 
 
-
-
-########## MEALS -> POST ########## /meals/1
+########## MEALS -> POST ##########
 @api.route('/meals', methods=['POST'])
 @jwt_required()
 def post_meals():
@@ -130,13 +118,6 @@ def post_meals():
     user = db.session.execute(select(User).where(User.id == userID)).scalar_one_or_none()
     if not user:
         return jsonify({"msg": "sorry no user was found"}), 400
-    
-    ## STEP 1: CONNECT TO CLAUDE API WITH MEAL DESCRIPTION
-    ## STEP 2: CREATE PROMPT FOR CLAUDE LIST CARBS, PROTEINS ETC...
-    ## STEP 3: I WANT THE OUTPUT TO BE A JSON OBJECT
-    ## STEP 4: CREATE THE MEAL AND SEND TO THE DATABASE
-    ## STEP 5: IF PROMPT DOESNT HAVE A PROPER MEAL RETURN ERROR
-    ## STEP 6: THEN CREATE MEAL AND NUTRITION OBJECT AND POST TO THE DATABASE
 
     meal = Meal(
         user_id = userID,
@@ -145,72 +126,142 @@ def post_meals():
     db.session.add(meal)
     db.session.commit()
 
-#    nutrition = Nutrition(
-#       meal_id = meal.id,
-#       calories = DATA-RETURNED-BY-CLAUDE-API, 
-#       protein = DATA-RETURNED-BY-CLAUDE-API, 
-#       carbs = DATA-RETURNED-BY-CLAUDE-API, 
-#       fat = DATA-RETURNED-BY-CLAUDE-API, 
-#    )
-
     meal_dictionary = meal.serialize()
     return jsonify(meal_dictionary), 201
-    
-                              
 
 
+########## ANALYZE MEAL WITH CLAUDE AI ##########
+@api.route('/analyze-meal', methods=['POST'])
+def analyze_meal():
+    body = request.json
+    if not body:
+        return jsonify({"msg": "No data provided"}), 400
 
-#### EXAMPLE RESPONSE BODIES 
-# get_meals_response_body = [{
-#     "id": 4,
-#     "datetime": "2026-05-04T22:40:01.869Z",
-#     "name": "Dinner",
-#     "description": "4 eggs, 2 arepas.",
-#     "nutritional_value": {
-#         "calories": 540,
-#         "proteins": 64,
-#         "carbs": 108,
-#         "fats": 90
-#     }
-# }, {
-#     "id": 6,
-#     "datetime": "2026-05-04T12:40:01.869Z",
-#     "name": "Breakfast",
-#     "description": "4 eggs, 2 arepas.",
-#     "nutritional_value": {
-#         "calories": 421,
-#         "proteins": 21,
-#         "carbs": 90,
-#         "fats": 10
-#     }
-# }];
+    description  = body.get("description", "")
+    image_base64 = body.get("image_base64", None)
+    media_type   = body.get("media_type", "image/jpeg")
 
-# post_meal_request_body = {
-#     "meal_description": "Some meal I had today"
-# };
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        return jsonify({"msg": "Claude API key not configured"}), 500
 
-# post_meal_response_body = {
-#     "id": 6,
-#     "datetime": "2026-05-04T12:40:01.869Z",
-#     "name": "Breakfast",
-#     "description": "Some meal I had today",
-#     "nutritional_value": {
-#         "calories": 421,
-#         "proteins": 21,
-#         "carbs": 90,
-#         "fats": 10
-#     }
-# }
+    client = anthropic.Anthropic(api_key=api_key)
+
+    try:
+        if image_base64:
+            # Photo analysis — Claude sees the image and returns nutrition
+            message = client.messages.create(
+                model="claude-opus-4-7",
+                max_tokens=1000,
+                messages=[{
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": media_type,
+                                "data": image_base64,
+                            },
+                        },
+                        {
+                            "type": "text",
+                            "text": f"""You are a nutrition expert. Analyze this food image and return ONLY a JSON object with no explanation, no markdown, no backticks.
+
+Return exactly this format:
+{{"calories": 000, "protein": 00, "carbs": 00, "fat": 00, "description": "brief description of what you see"}}
+
+Use realistic nutritional values for a typical serving size.
+Additional context from user: {description}"""
+                        }
+                    ],
+                }]
+            )
+        else:
+            # Text analysis — Claude reads the description and returns nutrition
+            message = client.messages.create(
+                model="claude-opus-4-7",
+                max_tokens=1000,
+                messages=[{
+                    "role": "user",
+                    "content": f"""You are a nutrition expert. The user has described a meal. Analyze it and return ONLY a JSON object with no explanation, no markdown, no backticks.
+
+Meal description: "{description}"
+
+Return exactly this format:
+{{"calories": 000, "protein": 00, "carbs": 00, "fat": 00}}
+
+Use realistic nutritional values based on standard serving sizes.
+If the description is not a food item, return:
+{{"calories": 0, "protein": 0, "carbs": 0, "fat": 0}}"""
+                }]
+            )
+
+        text = message.content[0].text
+        clean = text.replace("```json", "").replace("```", "").strip()
+        nutrition = json.loads(clean)
+        return jsonify(nutrition), 200
+
+    except json.JSONDecodeError:
+        return jsonify({"msg": "Claude returned an unexpected response"}), 500
+    except Exception as e:
+        print(f"Claude API error: {e}")
+        return jsonify({"msg": "Failed to analyze meal"}), 500
 
 
+########## SETTINGS -> GET ##########
+@api.route('/settings', methods=['GET'])
+@jwt_required()
+def get_settings():
+    current_user = get_jwt_identity()
+    user = db.session.execute(
+        select(User).where(User.email == current_user)
+    ).scalar_one_or_none()
 
-# @api.route('/hello', methods=['POST', 'GET'])
-# def handle_hello():
+    if not user:
+        return jsonify({"msg": "User not found"}), 404
 
-#     response_body = {
-#         "message": "Hello! I'm a message that came from the backend, check the network tab on the google inspector and you will see the GET request"
-#     }
-
-#     return jsonify(response_body), 200
+    return jsonify(user.serialize_settings()), 200
 
 
+########## SETTINGS -> POST ##########
+@api.route('/settings', methods=['POST'])
+@jwt_required()
+def save_settings():
+    current_user = get_jwt_identity()
+    user = db.session.execute(
+        select(User).where(User.email == current_user)
+    ).scalar_one_or_none()
+
+    if not user:
+        return jsonify({"msg": "User not found"}), 404
+
+    body = request.json
+    if not body:
+        return jsonify({"msg": "No data provided"}), 400
+
+    profile = body.get("profile", {})
+    health  = body.get("health",  {})
+    goals   = body.get("goals",   {})
+
+    user.full_name    = profile.get("name",    user.full_name)
+    user.age          = profile.get("age",     user.age)
+    user.gender       = profile.get("gender",  user.gender)
+    user.unit         = body.get("unit",        user.unit)
+    user.activity     = body.get("activity",    user.activity)
+    user.weight_goal  = body.get("weightGoal",  user.weight_goal)
+    user.weekly_rate  = body.get("weeklyRate",  user.weekly_rate)
+
+    user.weight       = health.get("weight",    user.weight)
+    user.height_ft    = health.get("height_ft", user.height_ft)
+    user.height_in    = health.get("height_in", user.height_in)
+    user.height_cm    = health.get("height_cm", user.height_cm)
+    user.weight_kg    = health.get("weight_kg", user.weight_kg)
+
+    user.goal_calories = goals.get("calories", user.goal_calories)
+    user.goal_protein  = goals.get("protein",  user.goal_protein)
+    user.goal_carbs    = goals.get("carbs",     user.goal_carbs)
+    user.goal_fat      = goals.get("fat",       user.goal_fat)
+
+    db.session.commit()
+    return jsonify({"msg": "Settings saved successfully"}), 200
