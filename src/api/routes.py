@@ -2,7 +2,7 @@
 This module takes care of starting the API Server, Loading the DB and Adding the endpoints
 """
 from flask import Flask, request, jsonify, url_for, Blueprint
-from api.models import db, User, Meal, Nutrition
+from api.models import db, User, Meal, Nutrition, UserProfile
 from api.utils import generate_sitemap, APIException
 from flask_cors import CORS
 from sqlalchemy import select
@@ -221,7 +221,19 @@ def get_settings():
     if not user:
         return jsonify({"msg": "User not found"}), 404
 
-    return jsonify(user.serialize_settings()), 200
+    # Si no tiene perfil todavía, devuelve valores vacíos
+    if not user.profile:
+        return jsonify({
+            "profile": {"name": None, "age": None, "gender": None},
+            "health": {"weight": None, "weight_kg": None, "height_ft": None, "height_in": None, "height_cm": None},
+            "unit": None,
+            "activity": None,
+            "weightGoal": None,
+            "weeklyRate": None,
+            "goals": {"calories": 2000, "protein": 150, "carbs": 250, "fat": 65}
+        }), 200
+
+    return jsonify(user.profile.serialize()), 200
 
 
 ########## SETTINGS -> POST ##########
@@ -240,28 +252,33 @@ def save_settings():
     if not body:
         return jsonify({"msg": "No data provided"}), 400
 
+    # Si no tiene perfil, lo crea
+    if not user.profile:
+        user.profile = UserProfile(user_id=user.id)
+        db.session.add(user.profile)
+
     profile = body.get("profile", {})
-    health  = body.get("health",  {})
-    goals   = body.get("goals",   {})
+    health  = body.get("health", {})
+    goals   = body.get("goals", {})
 
-    user.full_name    = profile.get("name",    user.full_name)
-    user.age          = profile.get("age",     user.age)
-    user.gender       = profile.get("gender",  user.gender)
-    user.unit         = body.get("unit",        user.unit)
-    user.activity     = body.get("activity",    user.activity)
-    user.weight_goal  = body.get("weightGoal",  user.weight_goal)
-    user.weekly_rate  = body.get("weeklyRate",  user.weekly_rate)
+    user.profile.full_name   = profile.get("name",      user.profile.full_name)
+    user.profile.age         = profile.get("age",       user.profile.age)
+    user.profile.gender      = profile.get("gender",    user.profile.gender)
+    user.profile.unit        = body.get("unit",         user.profile.unit)
+    user.profile.activity    = body.get("activity",     user.profile.activity)
+    user.profile.weight_goal = body.get("weightGoal",   user.profile.weight_goal)
+    user.profile.weekly_rate = body.get("weeklyRate",   user.profile.weekly_rate)
 
-    user.weight       = health.get("weight",    user.weight)
-    user.height_ft    = health.get("height_ft", user.height_ft)
-    user.height_in    = health.get("height_in", user.height_in)
-    user.height_cm    = health.get("height_cm", user.height_cm)
-    user.weight_kg    = health.get("weight_kg", user.weight_kg)
+    user.profile.weight    = health.get("weight",    user.profile.weight)
+    user.profile.weight_kg = health.get("weight_kg", user.profile.weight_kg)
+    user.profile.height_ft = health.get("height_ft", user.profile.height_ft)
+    user.profile.height_in = health.get("height_in", user.profile.height_in)
+    user.profile.height_cm = health.get("height_cm", user.profile.height_cm)
 
-    user.goal_calories = goals.get("calories", user.goal_calories)
-    user.goal_protein  = goals.get("protein",  user.goal_protein)
-    user.goal_carbs    = goals.get("carbs",     user.goal_carbs)
-    user.goal_fat      = goals.get("fat",       user.goal_fat)
+    user.profile.goal_calories = goals.get("calories", user.profile.goal_calories)
+    user.profile.goal_protein  = goals.get("protein",  user.profile.goal_protein)
+    user.profile.goal_carbs    = goals.get("carbs",    user.profile.goal_carbs)
+    user.profile.goal_fat      = goals.get("fat",      user.profile.goal_fat)
 
     db.session.commit()
     return jsonify({"msg": "Settings saved successfully"}), 200
