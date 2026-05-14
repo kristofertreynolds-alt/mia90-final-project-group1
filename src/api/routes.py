@@ -94,16 +94,23 @@ def protected():
 @jwt_required()
 def get_meals():
     userID = get_jwt_identity()
+    
+    user = db.session.execute(
+        select(User)
+        .where(User.email == userID)
+    ).scalar_one_or_none()
+
     statement = (
         select(Meal)
-        .where(User.id == userID)
+        .where(Meal.user_id == user.id)
     )
-    meal = db.session.execute(statement).scalars().all()
-    meals = []
+    meals = db.session.execute(statement).scalars().all()
+    _meals = []
+
     for meal in meals: 
         dictionary = meal.serialize()
-        meals.append(dictionary)
-    return jsonify(meals), 200
+        _meals.append(dictionary)
+    return jsonify(_meals), 200
 
 
 ########## MEALS -> POST ##########
@@ -132,12 +139,21 @@ def post_meals():
 
 ########## ANALYZE MEAL WITH CLAUDE AI ##########
 @api.route('/analyze-meal', methods=['POST'])
+@jwt_required()
 def analyze_meal():
+    userEmail = get_jwt_identity()
+    
+    user = db.session.execute(
+        select(User)
+        .where(User.email == userEmail)
+    ).scalar_one_or_none()
+    
     body = request.json
     if not body:
         return jsonify({"msg": "No data provided"}), 400
 
     description  = body.get("description", "")
+    name = body.get("meal_type")
     image_base64 = body.get("image_base64", None)
     media_type   = body.get("media_type", "image/jpeg")
 
@@ -168,11 +184,11 @@ def analyze_meal():
                             "type": "text",
                             "text": f"""You are a nutrition expert. Analyze this food image and return ONLY a JSON object with no explanation, no markdown, no backticks.
 
-Return exactly this format:
-{{"calories": 000, "protein": 00, "carbs": 00, "fat": 00, "description": "brief description of what you see"}}
+                            Return exactly this format:
+                            {{"calories": 000, "protein": 00, "carbs": 00, "fat": 00, "description": "brief description of what you see"}}
 
-Use realistic nutritional values for a typical serving size.
-Additional context from user: {description}"""
+                            Use realistic nutritional values for a typical serving size.
+                            Additional context from user: {description}"""
                         }
                     ],
                 }]
@@ -186,21 +202,45 @@ Additional context from user: {description}"""
                     "role": "user",
                     "content": f"""You are a nutrition expert. The user has described a meal. Analyze it and return ONLY a JSON object with no explanation, no markdown, no backticks.
 
-Meal description: "{description}"
+                    Meal description: "{description}"
 
-Return exactly this format:
-{{"calories": 000, "protein": 00, "carbs": 00, "fat": 00}}
+                    Return exactly this format:
+                    {{"calories": 000, "protein": 00, "carbs": 00, "fat": 00}}
 
-Use realistic nutritional values based on standard serving sizes.
-If the description is not a food item, return:
-{{"calories": 0, "protein": 0, "carbs": 0, "fat": 0}}"""
+                    Use realistic nutritional values based on standard serving sizes.
+                    If the description is not a food item, return:
+                    {{"calories": 0, "protein": 0, "carbs": 0, "fat": 0}}"""
                 }]
             )
 
+        
+        # RESPONSE FROM CLAUDE
         text = message.content[0].text
         clean = text.replace("```json", "").replace("```", "").strip()
+
+        # DICTIONARY WITH PROTEIN CALORIES AND FAT
         nutrition = json.loads(clean)
-        return jsonify(nutrition), 200
+
+        # CONNECT TO DATABASE
+        meal = Meal(
+            user_id = user.id, 
+            type = name,
+            description = nutrition.get("description") or description
+        )
+        db.session.add(meal)
+        db.session.commit()
+
+        nutrition_value = Nutrition(
+            meal_id = meal.id,
+            protein = nutrition.get("protein"),
+            fat = nutrition.get("fat"),
+            carbs = nutrition.get("carbs"),
+            calories = nutrition.get("calories"),
+        )
+        db.session.add(nutrition_value)
+        db.session.commit()
+
+        return jsonify(meal.serialize()), 200
 
     except json.JSONDecodeError:
         return jsonify({"msg": "Claude returned an unexpected response"}), 500

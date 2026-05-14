@@ -33,6 +33,11 @@ export default function storeReducer(store, action = {}) {
         ...store,
         message: action.payload
       };
+    case 'set_meals':
+      return {
+        ...store,
+        meals: action.payload
+      };
       
     case 'add_task':
 

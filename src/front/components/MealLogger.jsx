@@ -1,11 +1,13 @@
 import { useState, useRef } from "react";
+import useGlobalReducer from "../hooks/useGlobalReducer";
 
 const MEAL_TYPES = ["Breakfast", "Lunch", "Dinner", "Snack"];
 const MEAL_ICONS = { Breakfast: "☀️", Lunch: "🌤️", Dinner: "🌙", Snack: "🍎" };
 
-async function analyzeWithClaude(description, imageBase64 = null, mediaType = "image/jpeg") {
+async function analyzeWithClaude(description, mealType, imageBase64 = null, mediaType = "image/jpeg") {
   const backendUrl = import.meta.env.VITE_BACKEND_URL;
-  const token = localStorage.getItem("token");
+  //const token = localStorage.getItem("token");
+  const token = sessionStorage.getItem("token");
 
   const response = await fetch(`${backendUrl}/api/analyze-meal`, {
     method: "POST",
@@ -17,6 +19,7 @@ async function analyzeWithClaude(description, imageBase64 = null, mediaType = "i
       description,
       image_base64: imageBase64,
       media_type: mediaType,
+      meal_type: mealType
     }),
   });
 
@@ -42,7 +45,7 @@ export default function MealLogger({ onLogMeal }) {
     setError("");
 
     try {
-      const nutrition = await analyzeWithClaude(text, imageBase64, mediaType);
+      const nutrition = await analyzeWithClaude(text, mealType, imageBase64, mediaType);
       const timeStr = new Date().toLocaleTimeString("en-US", {
         hour: "numeric",
         minute: "2-digit",
