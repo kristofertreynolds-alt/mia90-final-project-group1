@@ -142,12 +142,12 @@ def post_meals():
 @jwt_required()
 def analyze_meal():
     userEmail = get_jwt_identity()
-    
+
     user = db.session.execute(
         select(User)
         .where(User.email == userEmail)
     ).scalar_one_or_none()
-    
+
     body = request.json
     if not body:
         return jsonify({"msg": "No data provided"}), 400
@@ -247,7 +247,6 @@ def analyze_meal():
     except Exception as e:
         print(f"Claude API error: {e}")
         return jsonify({"msg": "Failed to analyze meal"}), 500
-
 
 ########## SETTINGS -> GET ##########
 @api.route('/settings', methods=['GET'])
