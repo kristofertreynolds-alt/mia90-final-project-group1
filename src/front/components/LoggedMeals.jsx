@@ -1,14 +1,34 @@
 import { useState } from "react";
+// import useGlobalReducer from "../hooks/useGlobalReducer"; <---
 
 export default function LoggedMeals({ meals, onDelete }) {
+  // const { store, dispatch } = useGlobalReducer(); <--- with this we would erase the promopts
+  // const token = sessionStorage.getItem("token");
   const [expanded, setExpanded] = useState(null);
+
+//   const handleDelete = async (id) => {
+//   try {
+//     const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/meals/${id}`, { <---
+//       method: "DELETE",
+//       headers: { "Authorization": `Bearer ${token}` }
+//     });
+
+//     if (response.ok) {
+//       dispatch({ type: "delete_meal", payload: id });
+//     }
+//   } catch (error) {
+//     console.error("Error deleting meal:", error);
+//   }
+// };
+
+  // if (store.meals.length === 0) return null;
 
   if (meals.length === 0) return null;
 
   return (
     <div className="logged-meals-section">
       <div className="logged-meals-title">Logged Meals</div>
-      {meals.map((meal) => (
+      {meals.map((meal) => ( // store.meals <--- 
         <div key={meal.id}>
           <div
             className="meal-card"
@@ -39,6 +59,7 @@ export default function LoggedMeals({ meals, onDelete }) {
               {meal.carbs}g carbs · {meal.fat}g fat
               <br />
               <button className="btn-delete" onClick={() => onDelete(meal.id)}>
+                {/* ← handleDelete instead of onDelete */}
                 🗑 Delete meal
               </button>
             </div>

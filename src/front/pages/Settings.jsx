@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import useGlobalReducer from "../hooks/useGlobalReducer";
 
 export const Settings = () => {
   const navigate = useNavigate();
+  const { dispatch } = useGlobalReducer();
   const [saved, setSaved] = useState(false);
   const [unit, setUnit] = useState("imperial");
 
@@ -39,6 +41,46 @@ export const Settings = () => {
     active: 1.725,
     very_active: 1.9,
   };
+
+    useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const token = sessionStorage.getItem("token");
+        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/settings`, {
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+
+          if (data.profile) setProfile({
+            name:   data.profile.name   || "",
+            email:  data.profile.email  || "",
+            age:    data.profile.age    || "",
+            gender: data.profile.gender || "",
+          });
+
+          if (data.health) setHealth({
+            weight:    data.health.weight    || "",
+            height_ft: data.health.height_ft || "",
+            height_in: data.health.height_in || "",
+            height_cm: data.health.height_cm || "",
+            weight_kg: data.health.weight_kg || "",
+          });
+
+          if (data.goals)      setGoals(data.goals);
+          if (data.unit)       setUnit(data.unit);
+          if (data.activity)   setActivity(data.activity);
+          if (data.weightGoal) setWeightGoal(data.weightGoal);
+          if (data.weeklyRate) setWeeklyRate(data.weeklyRate);
+        }
+      } catch (err) {
+        console.error("Failed to load settings", err);
+      }
+    };
+
+    fetchSettings();
+  }, []);
 
   const getWeightKg = () => {
     if (unit === "imperial") return parseFloat(health.weight) * 0.453592;
@@ -109,8 +151,9 @@ export const Settings = () => {
   const handleSave = async () => {
     try {
       const backendUrl = import.meta.env.VITE_BACKEND_URL;
-      const token = localStorage.getItem("token");
+      const token = sessionStorage.getItem("token");
       const payload = { profile, health, goals, activity, unit, weightGoal, weeklyRate };
+
       const response = await fetch(`${backendUrl}/api/settings`, {
         method: "POST",
         headers: {
@@ -120,6 +163,8 @@ export const Settings = () => {
         body: JSON.stringify(payload),
       });
       if (response.ok) {
+        dispatch({ type: "set_goals", payload: goals });
+        
         setSaved(true);
         setTimeout(() => setSaved(false), 3000);
       }

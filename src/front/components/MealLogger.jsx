@@ -28,6 +28,8 @@ async function analyzeWithClaude(description, mealType, imageBase64 = null, medi
 }
 
 export default function MealLogger({ onLogMeal }) {
+  // const { dispatch } = useGlobalReducer(); <---
+
   const [text, setText] = useState("");
   const [mealType, setMealType] = useState("Snack");
   const [loading, setLoading] = useState(false);
@@ -62,6 +64,34 @@ export default function MealLogger({ onLogMeal }) {
         carbs: nutrition.carbs,
         fat: nutrition.fat,
       });
+
+      //       const mealData = {
+      //   type: mealType,
+      //   description: nutrition.description || text.trim(), <----
+      //   time: timeStr,
+      //   calories: nutrition.calories,
+      //   protein: nutrition.protein,
+      //   carbs: nutrition.carbs,
+      //   fat: nutrition.fat,
+      // };
+
+      // const response = await fetch(`${backendUrl}/api/meals`, {
+      //   method: "POST",
+      //   headers: {
+      //     "Content-Type": "application/json",
+      //     "Authorization": `Bearer ${token}`,
+      //   },
+      //   body: JSON.stringify(mealData),
+      // });
+
+      // if (!response.ok) throw new Error("Failed to save meal"); <------
+      // const savedMeal = await response.json();
+
+      // // Paso 3 — agregar al store global
+      // dispatch({
+      //   type: "add_meal",
+      //   payload: { ...savedMeal, icon: MEAL_ICONS[mealType] }
+      // });
 
       setText("");
       setPreview(null);
