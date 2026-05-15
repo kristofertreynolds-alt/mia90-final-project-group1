@@ -59,9 +59,25 @@ export const Home = () => {
 
   }
 
+  const getGoals = async () => {
+    const response = await fetch(`${backendUrl}/api/settings`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
+      }
+    });
+    const body = await response.json();
+    dispatch({
+      type: "set_goals",
+      payload: body.goals 
+    });
+  }
+
 
   useEffect(()=>{
     getMeals();
+    getGoals();
   }, [])
 
   return (
@@ -70,12 +86,13 @@ export const Home = () => {
         <Navbar />
         <GreetingCard
           caloriesPercent={Math.round((totals.calories / dailyGoals.calories) * 100)}
-          userName="Jorge"
+          userName={store.user?.full_name || store.user?.email || "there"}
         />
         <MealLogger />
-        <MacrosCard totals={totals} goals={dailyGoals} />
-        <GoalsCard totals={totals} goals={dailyGoals} />
-        <LoggedMeals meals={store.meals} onDelete={handleDeleteMeal} />
+        <MacrosCard totals={totals} goals={store.dailyGoals} />
+        <GoalsCard totals={totals} goals={store.dailyGoals} />
+        <LoggedMeals meals={store.meals} onDelete={handleDeleteMeal} /> 
+        {/* without prompts in loggedmeals */}
       </div>
     </div>
 );

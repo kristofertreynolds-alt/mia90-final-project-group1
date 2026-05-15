@@ -4,50 +4,33 @@ export const initialStore = () => {
     meals: [],
     token: sessionStorage.getItem("token") || null,
     user: null,
-    todos: [
-      { id: 1, title: "Make the bed", background: null },
-      { id: 2, title: "Do my homework", background: null }
-    ]
+    dailyGoals: { calories: 2000, protein: 150, carbs: 250, fat: 65 }
   }
 }
 
 export default function storeReducer(store, action = {}) {
-  switch (action.type) {
+    switch (action.type) {
     case 'login':
       sessionStorage.setItem("token", action.payload.token);
-      return {
-        ...store,
-        token: action.payload.token,
-        user: action.payload.user
-      };
+      return { ...store, token: action.payload.token, user: action.payload.user };
 
     case 'logout':
       sessionStorage.removeItem("token");
-      return {
-        ...store,
-        token: null,
-        user: null
-      };
-    case 'set_hello':
-      return {
-        ...store,
-        message: action.payload
-      };
+      return { ...store, token: null, user: null, meals: [] };
+
     case 'set_meals':
-      return {
-        ...store,
-        meals: action.payload
-      };
-      
-    case 'add_task':
+      return { ...store, meals: action.payload };
 
-      const { id,  color } = action.payload
+    case 'add_meal':
+      return { ...store, meals: [action.payload, ...store.meals] };
 
-      return {
-        ...store,
-        todos: store.todos.map((todo) => (todo.id === id ? { ...todo, background: color } : todo))
-      };
+    case 'delete_meal':
+      return { ...store, meals: store.meals.filter((meal) => meal.id !== action.payload) };
+
+    case 'set_goals':
+      return { ...store, dailyGoals: action.payload };
+
     default:
       throw Error('Unknown action.');
-  }    
+  }
 }
