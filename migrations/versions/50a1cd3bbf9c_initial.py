@@ -1,8 +1,8 @@
-"""empty message
+"""initial
 
-Revision ID: c72df1c04f1b
+Revision ID: 50a1cd3bbf9c
 Revises: 
-Create Date: 2026-05-14 00:25:46.140935
+Create Date: 2026-05-17 18:55:18.794279
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'c72df1c04f1b'
+revision = '50a1cd3bbf9c'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -41,15 +41,12 @@ def upgrade():
     sa.Column('full_name', sa.String(length=120), nullable=True),
     sa.Column('age', sa.Integer(), nullable=True),
     sa.Column('gender', sa.String(length=20), nullable=True),
-    sa.Column('unit', sa.String(length=10), nullable=True),
-    sa.Column('weight', sa.Float(), nullable=True),
     sa.Column('weight_kg', sa.Float(), nullable=True),
-    sa.Column('height_ft', sa.Integer(), nullable=True),
-    sa.Column('height_in', sa.Integer(), nullable=True),
     sa.Column('height_cm', sa.Float(), nullable=True),
+    sa.Column('unit', sa.String(length=10), nullable=True),
     sa.Column('activity', sa.String(length=30), nullable=True),
     sa.Column('weight_goal', sa.String(length=30), nullable=True),
-    sa.Column('weekly_rate', sa.String(length=30), nullable=True),
+    sa.Column('weekly_rate', sa.Float(), nullable=True),
     sa.Column('goal_calories', sa.Integer(), nullable=True),
     sa.Column('goal_protein', sa.Integer(), nullable=True),
     sa.Column('goal_carbs', sa.Integer(), nullable=True),

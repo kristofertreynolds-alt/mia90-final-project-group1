@@ -22,7 +22,7 @@ export const Signup = () => {
         setIsLoading(true);
 
         try {
-            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/users`, {
+            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/users`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json"

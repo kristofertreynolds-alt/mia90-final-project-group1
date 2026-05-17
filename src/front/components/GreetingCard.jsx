@@ -1,4 +1,4 @@
-export default function GreetingCard({ caloriesPercent, userName = "there" }) {
+export default function GreetingCard({ caloriesPercent, userName }) {
   const now = new Date();
   const hour = now.getHours();
   const timeOfDay = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
