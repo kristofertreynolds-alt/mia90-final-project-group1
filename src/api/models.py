@@ -31,18 +31,17 @@ class UserProfile(db.Model):
     age: Mapped[int] = mapped_column(Integer(), nullable=True)
     gender: Mapped[str] = mapped_column(String(20), nullable=True)
 
-    # Body
-    unit: Mapped[str] = mapped_column(String(10), nullable=True)
-    weight: Mapped[float] = mapped_column(Float(), nullable=True)
+    # Body — metric
     weight_kg: Mapped[float] = mapped_column(Float(), nullable=True)
-    height_ft: Mapped[int] = mapped_column(Integer(), nullable=True)
-    height_in: Mapped[int] = mapped_column(Integer(), nullable=True)
     height_cm: Mapped[float] = mapped_column(Float(), nullable=True)
 
-    # Goals
+    # Preferences
+    unit: Mapped[str] = mapped_column(String(10), nullable=True)  # "imperial" o "metric" — solo para saber cómo mostrar
     activity: Mapped[str] = mapped_column(String(30), nullable=True)
     weight_goal: Mapped[str] = mapped_column(String(30), nullable=True)
-    weekly_rate: Mapped[str] = mapped_column(String(30), nullable=True)
+    weekly_rate: Mapped[float] = mapped_column(Float(), nullable=True)
+
+    # Goals
     goal_calories: Mapped[int] = mapped_column(Integer(), nullable=True)
     goal_protein: Mapped[int] = mapped_column(Integer(), nullable=True)
     goal_carbs: Mapped[int] = mapped_column(Integer(), nullable=True)
@@ -54,26 +53,23 @@ class UserProfile(db.Model):
     def serialize(self):
         return {
             "profile": {
-                "name": self.full_name,
-                "age": self.age,
+                "name":   self.full_name,
+                "age":    self.age,
                 "gender": self.gender,
             },
             "health": {
-                "weight": self.weight,
                 "weight_kg": self.weight_kg,
-                "height_ft": self.height_ft,
-                "height_in": self.height_in,
                 "height_cm": self.height_cm,
             },
-            "unit": self.unit,
-            "activity": self.activity,
+            "unit":       self.unit,
+            "activity":   self.activity,
             "weightGoal": self.weight_goal,
             "weeklyRate": self.weekly_rate,
             "goals": {
                 "calories": self.goal_calories or 2000,
-                "protein": self.goal_protein or 150,
-                "carbs": self.goal_carbs or 250,
-                "fat": self.goal_fat or 65,
+                "protein":  self.goal_protein  or 150,
+                "carbs":    self.goal_carbs    or 250,
+                "fat":      self.goal_fat      or 65,
             }
         }
 

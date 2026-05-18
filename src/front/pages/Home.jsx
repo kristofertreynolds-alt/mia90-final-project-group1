@@ -8,10 +8,10 @@ import LoggedMeals from "../components/LoggedMeals";
 import { Navbar } from "../components/Navbar";
 import useGlobalReducer from "../hooks/useGlobalReducer";
 
-const dailyGoals = { calories: 2000, protein: 150, carbs: 250, fat: 65 };
+// const dailyGoals = { calories: 2000, protein: 150, carbs: 250, fat: 65 };
 const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
-const initialMeals = [
+// const initialMeals = [
   // {
   //   id: 1, type: "Snack", icon: "🍎",
   //   description: "One bowl of vanilla ice cream.",
@@ -22,7 +22,7 @@ const initialMeals = [
   //   description: "One bowl of caesar salad with 4 oz of grilled chicken",
   //   time: "10:33 PM", calories: 661, protein: 48, carbs: 25, fat: 42,
   // },
-];
+// ];
 
 
 export const Home = () => {
@@ -46,7 +46,7 @@ export const Home = () => {
   //FETCH MEALS
   async function getMeals () {
 
-    const response = await fetch(`${backendUrl}/api/meals`, {
+    const response = await fetch(`${backendUrl}/meals`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -60,7 +60,7 @@ export const Home = () => {
   }
 
   const getGoals = async () => {
-    const response = await fetch(`${backendUrl}/api/settings`, {
+    const response = await fetch(`${backendUrl}/settings`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -72,6 +72,11 @@ export const Home = () => {
       type: "set_goals",
       payload: body.goals 
     });
+
+        if (body.profile?.name) {
+      dispatch({ type: "update_user", payload: { full_name: body.profile.name } });
+    }
+    
   }
 
 
@@ -85,14 +90,13 @@ export const Home = () => {
       <div className="container-app">
         <Navbar />
         <GreetingCard
-          caloriesPercent={Math.round((totals.calories / dailyGoals.calories) * 100)}
-          userName={store.user?.full_name || store.user?.email || "there"}
+          caloriesPercent={Math.round((totals.calories / (store.dailyGoals?.calories || 2000)) * 100)}
+          userName={store.user?.full_name || store.user?.email || ""}
         />
         <MealLogger />
         <MacrosCard totals={totals} goals={store.dailyGoals} />
         <GoalsCard totals={totals} goals={store.dailyGoals} />
         <LoggedMeals meals={store.meals} onDelete={handleDeleteMeal} /> 
-        {/* without prompts in loggedmeals */}
       </div>
     </div>
 );

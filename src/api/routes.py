@@ -74,7 +74,7 @@ def user_login():
         return jsonify({"msg": "sorry user does not exist, please signup"}), 400
     
     access_token = create_access_token(identity=email)
-    return jsonify({"access_token": access_token}), 201
+    return jsonify({"access_token": access_token, "user": user.serialize()}), 200
 
 
 ########### USER PROFILE AREA ##########
@@ -142,12 +142,12 @@ def post_meals():
 @jwt_required()
 def analyze_meal():
     userEmail = get_jwt_identity()
-    
+
     user = db.session.execute(
         select(User)
         .where(User.email == userEmail)
     ).scalar_one_or_none()
-    
+
     body = request.json
     if not body:
         return jsonify({"msg": "No data provided"}), 400
@@ -248,7 +248,6 @@ def analyze_meal():
         print(f"Claude API error: {e}")
         return jsonify({"msg": "Failed to analyze meal"}), 500
 
-
 ########## SETTINGS -> GET ##########
 @api.route('/settings', methods=['GET'])
 @jwt_required()
@@ -261,7 +260,6 @@ def get_settings():
     if not user:
         return jsonify({"msg": "User not found"}), 404
 
-    # Si no tiene perfil todavía, devuelve valores vacíos
     if not user.profile:
         return jsonify({
             "profile": {"name": None, "age": None, "gender": None},
@@ -292,7 +290,7 @@ def save_settings():
     if not body:
         return jsonify({"msg": "No data provided"}), 400
 
-    # Si no tiene perfil, lo crea
+    
     if not user.profile:
         user.profile = UserProfile(user_id=user.id)
         db.session.add(user.profile)
@@ -300,21 +298,52 @@ def save_settings():
     profile = body.get("profile", {})
     health  = body.get("health", {})
     goals   = body.get("goals", {})
+    unit    = body.get("unit", "imperial")
 
-    user.profile.full_name   = profile.get("name",      user.profile.full_name)
-    user.profile.age         = profile.get("age",       user.profile.age)
-    user.profile.gender      = profile.get("gender",    user.profile.gender)
-    user.profile.unit        = body.get("unit",         user.profile.unit)
-    user.profile.activity    = body.get("activity",     user.profile.activity)
-    user.profile.weight_goal = body.get("weightGoal",   user.profile.weight_goal)
-    user.profile.weekly_rate = body.get("weeklyRate",   user.profile.weekly_rate)
+    # Profile
+    user.profile.full_name   = profile.get("name",    user.profile.full_name)
+    user.profile.age         = profile.get("age",     user.profile.age)
+    user.profile.gender      = profile.get("gender",  user.profile.gender)
+    user.profile.unit        = unit
+    user.profile.activity    = body.get("activity",   user.profile.activity)
+    user.profile.weight_goal = body.get("weightGoal", user.profile.weight_goal)
+    user.profile.weekly_rate = body.get("weeklyRate", user.profile.weekly_rate)
 
-    user.profile.weight    = health.get("weight",    user.profile.weight)
-    user.profile.weight_kg = health.get("weight_kg", user.profile.weight_kg)
-    user.profile.height_ft = health.get("height_ft", user.profile.height_ft)
-    user.profile.height_in = health.get("height_in", user.profile.height_in)
-    user.profile.height_cm = health.get("height_cm", user.profile.height_cm)
+    # Body 
+    if unit == "imperial":
+        weight_lbs = health.get("weight")
+        height_ft  = health.get("height_ft")
+        height_in  = health.get("height_in")
 
+        if weight_lbs:
+            try:
+                user.profile.weight_kg = round(float(weight_lbs) * 0.453592, 2)
+            except (ValueError, TypeError):
+                pass
+
+        if height_ft and height_in:
+            try:
+                total_inches = float(height_ft) * 12 + float(height_in)
+                user.profile.height_cm = round(total_inches * 2.54, 2)
+            except (ValueError, TypeError):
+                pass
+    else:
+        weight_kg  = health.get("weight_kg")
+        height_cm  = health.get("height_cm")
+
+        if weight_kg:
+            try:
+                user.profile.weight_kg = float(weight_kg)
+            except (ValueError, TypeError):
+                pass
+
+        if height_cm:
+            try:
+                user.profile.height_cm = float(height_cm)
+            except (ValueError, TypeError):
+                pass
+
+    # Goals
     user.profile.goal_calories = goals.get("calories", user.profile.goal_calories)
     user.profile.goal_protein  = goals.get("protein",  user.profile.goal_protein)
     user.profile.goal_carbs    = goals.get("carbs",    user.profile.goal_carbs)

@@ -4,13 +4,12 @@ import useGlobalReducer from "../hooks/useGlobalReducer";
 
 export const Settings = () => {
   const navigate = useNavigate();
-  const { dispatch } = useGlobalReducer();
+  const { store, dispatch } = useGlobalReducer();
   const [saved, setSaved] = useState(false);
   const [unit, setUnit] = useState("imperial");
 
   const [profile, setProfile] = useState({
     name: "",
-    email: "",
     age: "",
     gender: "",
   });
@@ -33,6 +32,7 @@ export const Settings = () => {
   const [activity, setActivity] = useState("moderate");
   const [weightGoal, setWeightGoal] = useState("maintain");
   const [weeklyRate, setWeeklyRate] = useState(0.5);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
 
   const activityMultipliers = {
     sedentary: 1.2,
@@ -42,11 +42,11 @@ export const Settings = () => {
     very_active: 1.9,
   };
 
-    useEffect(() => {
+  useEffect(() => {
     const fetchSettings = async () => {
       try {
         const token = sessionStorage.getItem("token");
-        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/settings`, {
+        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/settings`, {
           headers: { "Authorization": `Bearer ${token}` }
         });
 
@@ -54,25 +54,39 @@ export const Settings = () => {
           const data = await response.json();
 
           if (data.profile) setProfile({
-            name:   data.profile.name   || "",
-            email:  data.profile.email  || "",
-            age:    data.profile.age    || "",
+            name: data.profile.name || "",
+            age: data.profile.age || "",
             gender: data.profile.gender || "",
           });
 
-          if (data.health) setHealth({
-            weight:    data.health.weight    || "",
-            height_ft: data.health.height_ft || "",
-            height_in: data.health.height_in || "",
-            height_cm: data.health.height_cm || "",
-            weight_kg: data.health.weight_kg || "",
-          });
+          if (data.health) {
+            const { weight_kg, height_cm } = data.health;
 
-          if (data.goals)      setGoals(data.goals);
-          if (data.unit)       setUnit(data.unit);
-          if (data.activity)   setActivity(data.activity);
+            if (data.unit === "imperial") {
+              setHealth({
+                weight: weight_kg ? Math.round(weight_kg / 0.453592) : "",
+                height_ft: height_cm ? Math.floor((height_cm / 2.54) / 12) : "",
+                height_in: height_cm ? Math.round((height_cm / 2.54) % 12) : "",
+                height_cm: "",
+                weight_kg: "",
+              });
+            } else {
+              setHealth({
+                weight: "",
+                height_ft: "",
+                height_in: "",
+                height_cm: height_cm || "",
+                weight_kg: weight_kg || "",
+              });
+            }
+          }
+
+          if (data.goals) setGoals(data.goals);
+          if (data.unit) setUnit(data.unit);
+          if (data.activity) setActivity(data.activity);
           if (data.weightGoal) setWeightGoal(data.weightGoal);
           if (data.weeklyRate) setWeeklyRate(data.weeklyRate);
+          setSettingsLoaded(true);
         }
       } catch (err) {
         console.error("Failed to load settings", err);
@@ -83,15 +97,23 @@ export const Settings = () => {
   }, []);
 
   const getWeightKg = () => {
-    if (unit === "imperial") return parseFloat(health.weight) * 0.453592;
-    return parseFloat(health.weight_kg);
+    if (unit === "imperial") {
+      const w = parseFloat(health.weight);
+      return isNaN(w) ? null : w * 0.453592;
+    }
+    const w = parseFloat(health.weight_kg);
+    return isNaN(w) ? null : w;
   };
 
   const getHeightCm = () => {
     if (unit === "imperial") {
-      return (parseFloat(health.height_ft) * 12 + parseFloat(health.height_in)) * 2.54;
+      const ft = parseFloat(health.height_ft);
+      const inc = parseFloat(health.height_in);
+      if (isNaN(ft) || isNaN(inc)) return null;
+      return (ft * 12 + inc) * 2.54;
     }
-    return parseFloat(health.height_cm);
+    const h = parseFloat(health.height_cm);
+    return isNaN(h) ? null : h;
   };
 
   const getBMI = () => {
@@ -124,12 +146,13 @@ export const Settings = () => {
   const getBMILabel = (bmi) => {
     if (!bmi) return null;
     if (bmi < 18.5) return { label: "Underweight", color: "#3b82f6" };
-    if (bmi < 25)   return { label: "Healthy",     color: "#22c55e" };
-    if (bmi < 30)   return { label: "Overweight",  color: "#eab308" };
+    if (bmi < 25) return { label: "Healthy", color: "#22c55e" };
+    if (bmi < 30) return { label: "Overweight", color: "#eab308" };
     return { label: "Obese", color: "#ef4444" };
   };
 
   useEffect(() => {
+    if (!settingsLoaded) return;
     const tdee = getTDEE();
     if (!tdee) return;
     const weeklyRateKg = unit === "imperial" ? weeklyRate * 0.453592 : weeklyRate;
@@ -138,10 +161,10 @@ export const Settings = () => {
     if (weightGoal === "lose") targetCalories = Math.max(1200, tdee - dailyDelta);
     if (weightGoal === "gain") targetCalories = tdee + dailyDelta;
     const protein = Math.round((targetCalories * 0.30) / 4);
-    const fat     = Math.round((targetCalories * 0.25) / 9);
-    const carbs   = Math.round((targetCalories * 0.45) / 4);
+    const fat = Math.round((targetCalories * 0.25) / 9);
+    const carbs = Math.round((targetCalories * 0.45) / 4);
     setGoals({ calories: targetCalories, protein, carbs, fat });
-  }, [activity, weightGoal, weeklyRate, health, profile.age, profile.gender, unit]);
+  }, [activity, weightGoal, weeklyRate, health, profile.age, profile.gender, unit, settingsLoaded]);
 
   const bmi = getBMI();
   const bmr = getBMR();
@@ -154,7 +177,7 @@ export const Settings = () => {
       const token = sessionStorage.getItem("token");
       const payload = { profile, health, goals, activity, unit, weightGoal, weeklyRate };
 
-      const response = await fetch(`${backendUrl}/api/settings`, {
+      const response = await fetch(`${backendUrl}/settings`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -164,7 +187,8 @@ export const Settings = () => {
       });
       if (response.ok) {
         dispatch({ type: "set_goals", payload: goals });
-        
+        dispatch({ type: "update_user", payload: { full_name: profile.name } });
+
         setSaved(true);
         setTimeout(() => setSaved(false), 3000);
       }
@@ -181,7 +205,7 @@ export const Settings = () => {
         <div className="settings-topbar">
           <button className="settings-back" onClick={() => navigate("/")}>
             <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-              <polyline points="15 18 9 12 15 6"/>
+              <polyline points="15 18 9 12 15 6" />
             </svg>
             Back
           </button>
@@ -215,8 +239,13 @@ export const Settings = () => {
             </div>
             <div className="settings-field">
               <label className="field-label">Email</label>
-              <input className="field-input" type="email" placeholder="jorge@email.com"
-                value={profile.email} onChange={(e) => setProfile({ ...profile, email: e.target.value })} />
+              <input
+                className="field-input"
+                type="email"
+                value={store.user?.email || ""}
+                disabled
+                style={{ opacity: 0.5, cursor: "not-allowed" }}
+              />
             </div>
             <div className="settings-field-row">
               <div className="settings-field">
@@ -317,10 +346,10 @@ export const Settings = () => {
           <div className="settings-section-label">Activity Level</div>
           <div className="activity-options">
             {[
-              { key: "sedentary",   label: "Sedentary",   desc: "Little or no exercise" },
-              { key: "light",       label: "Light",       desc: "Exercise 1–3 days/week" },
-              { key: "moderate",    label: "Moderate",    desc: "Exercise 3–5 days/week" },
-              { key: "active",      label: "Active",      desc: "Exercise 6–7 days/week" },
+              { key: "sedentary", label: "Sedentary", desc: "Little or no exercise" },
+              { key: "light", label: "Light", desc: "Exercise 1–3 days/week" },
+              { key: "moderate", label: "Moderate", desc: "Exercise 3–5 days/week" },
+              { key: "active", label: "Active", desc: "Exercise 6–7 days/week" },
               { key: "very_active", label: "Very Active", desc: "Hard exercise + physical job" },
             ].map((a) => (
               <div key={a.key}
@@ -384,9 +413,9 @@ export const Settings = () => {
           <div className="settings-section-label">Weight Goal</div>
           <div className="weight-goal-options">
             {[
-              { key: "lose",     label: "Lose Weight",     icon: "↓", color: "#3b82f6" },
+              { key: "lose", label: "Lose Weight", icon: "↓", color: "#3b82f6" },
               { key: "maintain", label: "Maintain Weight", icon: "→", color: "#22c55e" },
-              { key: "gain",     label: "Gain Weight",     icon: "↑", color: "#f97316" },
+              { key: "gain", label: "Gain Weight", icon: "↑", color: "#f97316" },
             ].map((w) => (
               <div key={w.key}
                 className={`weight-goal-option ${weightGoal === w.key ? "active" : ""}`}
@@ -422,8 +451,8 @@ export const Settings = () => {
                 {weeklyRate <= 0.5
                   ? "✓ This is a safe and sustainable rate"
                   : weeklyRate <= 1
-                  ? "⚠ Moderate pace — stay consistent"
-                  : "⚠ Aggressive — make sure you're eating enough nutrients"}
+                    ? "⚠ Moderate pace — stay consistent"
+                    : "⚠ Aggressive — make sure you're eating enough nutrients"}
               </div>
             </div>
           )}
@@ -440,9 +469,9 @@ export const Settings = () => {
           <div className="settings-fields" style={{ marginTop: 16 }}>
             {[
               { key: "calories", label: "Calories", unit: "kcal", min: 1000, max: 5000, step: 50 },
-              { key: "protein",  label: "Protein",  unit: "g",    min: 0,    max: 300,  step: 5  },
-              { key: "carbs",    label: "Carbs",    unit: "g",    min: 0,    max: 600,  step: 5  },
-              { key: "fat",      label: "Fat",      unit: "g",    min: 0,    max: 200,  step: 5  },
+              { key: "protein", label: "Protein", unit: "g", min: 0, max: 300, step: 5 },
+              { key: "carbs", label: "Carbs", unit: "g", min: 0, max: 600, step: 5 },
+              { key: "fat", label: "Fat", unit: "g", min: 0, max: 200, step: 5 },
             ].map((g) => (
               <div key={g.key} className="goal-slider-row">
                 <div className="goal-slider-header">

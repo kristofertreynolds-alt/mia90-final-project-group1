@@ -27,8 +27,8 @@ async function analyzeWithClaude(description, mealType, imageBase64 = null, medi
   return await response.json();
 }
 
-export default function MealLogger({ onLogMeal }) {
-  // const { dispatch } = useGlobalReducer(); <---
+export default function MealLogger() {
+  const { dispatch } = useGlobalReducer();
 
   const [text, setText] = useState("");
   const [mealType, setMealType] = useState("Snack");
@@ -41,6 +41,23 @@ export default function MealLogger({ onLogMeal }) {
   const fileRef = useRef(null);
   const recognitionRef = useRef(null);
 
+  async function getMeals () {
+
+    const backendUrl = import.meta.env.VITE_BACKEND_URL;
+    const token = sessionStorage.getItem("token");
+    const response = await fetch(`${backendUrl}/meals`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
+      }
+    });
+
+    const body = await response.json();
+    dispatch({type:"set_meals", payload: body});
+
+  }
+
   const handleLog = async () => {
     if (!text.trim() && !imageBase64) return;
     setLoading(true);
@@ -48,50 +65,11 @@ export default function MealLogger({ onLogMeal }) {
 
     try {
       const nutrition = await analyzeWithClaude(text, mealType, imageBase64, mediaType);
+     await getMeals();
       const timeStr = new Date().toLocaleTimeString("en-US", {
         hour: "numeric",
         minute: "2-digit",
       });
-
-      onLogMeal({
-        id: Date.now(),
-        type: mealType,
-        icon: MEAL_ICONS[mealType],
-        description: nutrition.description || text.trim(),
-        time: timeStr,
-        calories: nutrition.calories,
-        protein: nutrition.protein,
-        carbs: nutrition.carbs,
-        fat: nutrition.fat,
-      });
-
-      //       const mealData = {
-      //   type: mealType,
-      //   description: nutrition.description || text.trim(), <----
-      //   time: timeStr,
-      //   calories: nutrition.calories,
-      //   protein: nutrition.protein,
-      //   carbs: nutrition.carbs,
-      //   fat: nutrition.fat,
-      // };
-
-      // const response = await fetch(`${backendUrl}/api/meals`, {
-      //   method: "POST",
-      //   headers: {
-      //     "Content-Type": "application/json",
-      //     "Authorization": `Bearer ${token}`,
-      //   },
-      //   body: JSON.stringify(mealData),
-      // });
-
-      // if (!response.ok) throw new Error("Failed to save meal"); <------
-      // const savedMeal = await response.json();
-
-      // // Paso 3 — agregar al store global
-      // dispatch({
-      //   type: "add_meal",
-      //   payload: { ...savedMeal, icon: MEAL_ICONS[mealType] }
-      // });
 
       setText("");
       setPreview(null);
