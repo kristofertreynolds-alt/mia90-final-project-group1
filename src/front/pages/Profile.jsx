@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import useGlobalReducer from "../hooks/useGlobalReducer";
 
 const BADGES = [
   { id: 1, icon: "🔥", label: "First Meal Logged",  desc: "You logged your very first meal",     earned: true  },
@@ -23,6 +24,7 @@ const MILESTONES = [
 ];
 
 export const Profile = () => {
+  const {store, dispatch} = useGlobalReducer();
   const navigate = useNavigate();
   const fileRef = useRef(null);
   const [photo, setPhoto] = useState(null);
@@ -101,7 +103,7 @@ export const Profile = () => {
             <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handlePhotoChange} />
           </div>
           <div className="profile-hero-info">
-            <h2 className="profile-name">{settings.name}</h2>
+            <h2 className="profile-name">{store.user?.full_name || store.user?.email}</h2> 
             <div className="profile-goal-pill" style={{ background: `${goalColor}18`, color: goalColor }}>
               {goalLabel} Goal
             </div>

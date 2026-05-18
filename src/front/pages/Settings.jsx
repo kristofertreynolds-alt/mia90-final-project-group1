@@ -7,6 +7,10 @@ export const Settings = () => {
   const { store, dispatch } = useGlobalReducer();
   const [saved, setSaved] = useState(false);
   const [unit, setUnit] = useState("imperial");
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+
+  // Always store metric values as reference for unit conversion
+  const [metricHealth, setMetricHealth] = useState({ weight_kg: null, height_cm: null });
 
   const [profile, setProfile] = useState({
     name: "",
@@ -32,7 +36,6 @@ export const Settings = () => {
   const [activity, setActivity] = useState("moderate");
   const [weightGoal, setWeightGoal] = useState("maintain");
   const [weeklyRate, setWeeklyRate] = useState(0.5);
-  const [settingsLoaded, setSettingsLoaded] = useState(false);
 
   const activityMultipliers = {
     sedentary: 1.2,
@@ -42,6 +45,7 @@ export const Settings = () => {
     very_active: 1.9,
   };
 
+  // Load settings from backend on mount
   useEffect(() => {
     const fetchSettings = async () => {
       try {
@@ -54,17 +58,24 @@ export const Settings = () => {
           const data = await response.json();
 
           if (data.profile) setProfile({
-            name: data.profile.name || "",
-            age: data.profile.age || "",
+            name:   data.profile.name   || "",
+            age:    data.profile.age    || "",
             gender: data.profile.gender || "",
           });
 
           if (data.health) {
             const { weight_kg, height_cm } = data.health;
 
+            // Save metric reference for unit conversion
+            setMetricHealth({
+              weight_kg: weight_kg || null,
+              height_cm: height_cm || null,
+            });
+
+            // Display values based on user's preferred unit
             if (data.unit === "imperial") {
               setHealth({
-                weight: weight_kg ? Math.round(weight_kg / 0.453592) : "",
+                weight:    weight_kg ? Math.round(weight_kg / 0.453592) : "",
                 height_ft: height_cm ? Math.floor((height_cm / 2.54) / 12) : "",
                 height_in: height_cm ? Math.round((height_cm / 2.54) % 12) : "",
                 height_cm: "",
@@ -72,20 +83,20 @@ export const Settings = () => {
               });
             } else {
               setHealth({
-                weight: "",
-                height_ft: "",
-                height_in: "",
+                weight: "", height_ft: "", height_in: "",
                 height_cm: height_cm || "",
                 weight_kg: weight_kg || "",
               });
             }
           }
 
-          if (data.goals) setGoals(data.goals);
-          if (data.unit) setUnit(data.unit);
-          if (data.activity) setActivity(data.activity);
+          if (data.goals)      setGoals(data.goals);
+          if (data.unit)       setUnit(data.unit);
+          if (data.activity)   setActivity(data.activity);
           if (data.weightGoal) setWeightGoal(data.weightGoal);
           if (data.weeklyRate) setWeeklyRate(data.weeklyRate);
+
+          // Mark settings as loaded to allow goal auto-calculation
           setSettingsLoaded(true);
         }
       } catch (err) {
@@ -95,6 +106,46 @@ export const Settings = () => {
 
     fetchSettings();
   }, []);
+
+  // Convert displayed values when user switches units
+  useEffect(() => {
+    if (!settingsLoaded) return;
+
+    if (unit === "imperial") {
+      // Convert from metric reference to imperial for display
+      setHealth({
+        weight:    metricHealth.weight_kg ? Math.round(metricHealth.weight_kg / 0.453592) : "",
+        height_ft: metricHealth.height_cm ? Math.floor((metricHealth.height_cm / 2.54) / 12) : "",
+        height_in: metricHealth.height_cm ? Math.round((metricHealth.height_cm / 2.54) % 12) : "",
+        height_cm: "",
+        weight_kg: "",
+      });
+    } else {
+      // Convert from metric reference to metric for display
+      setHealth({
+        weight: "", height_ft: "", height_in: "",
+        weight_kg: metricHealth.weight_kg || "",
+        height_cm: metricHealth.height_cm || "",
+      });
+    }
+  }, [unit]);
+
+  // Auto-calculate goals based on profile — only after settings are loaded
+  useEffect(() => {
+    if (!settingsLoaded) return;
+
+    const tdee = getTDEE();
+    if (!tdee) return;
+    const weeklyRateKg = unit === "imperial" ? weeklyRate * 0.453592 : weeklyRate;
+    const dailyDelta = Math.round((weeklyRateKg * 7700) / 7);
+    let targetCalories = tdee;
+    if (weightGoal === "lose") targetCalories = Math.max(1200, tdee - dailyDelta);
+    if (weightGoal === "gain") targetCalories = tdee + dailyDelta;
+    const protein = Math.round((targetCalories * 0.30) / 4);
+    const fat     = Math.round((targetCalories * 0.25) / 9);
+    const carbs   = Math.round((targetCalories * 0.45) / 4);
+    setGoals({ calories: targetCalories, protein, carbs, fat });
+  }, [activity, weightGoal, weeklyRate, health, profile.age, profile.gender, unit, settingsLoaded]);
 
   const getWeightKg = () => {
     if (unit === "imperial") {
@@ -107,7 +158,7 @@ export const Settings = () => {
 
   const getHeightCm = () => {
     if (unit === "imperial") {
-      const ft = parseFloat(health.height_ft);
+      const ft  = parseFloat(health.height_ft);
       const inc = parseFloat(health.height_in);
       if (isNaN(ft) || isNaN(inc)) return null;
       return (ft * 12 + inc) * 2.54;
@@ -126,7 +177,7 @@ export const Settings = () => {
   const getBMR = () => {
     const weightKg = getWeightKg();
     const heightCm = getHeightCm();
-    const age = parseFloat(profile.age);
+    const age    = parseFloat(profile.age);
     const gender = profile.gender;
     if (!weightKg || !heightCm || !age || !gender) return null;
     if (gender === "male") {
@@ -146,38 +197,22 @@ export const Settings = () => {
   const getBMILabel = (bmi) => {
     if (!bmi) return null;
     if (bmi < 18.5) return { label: "Underweight", color: "#3b82f6" };
-    if (bmi < 25) return { label: "Healthy", color: "#22c55e" };
-    if (bmi < 30) return { label: "Overweight", color: "#eab308" };
+    if (bmi < 25)   return { label: "Healthy",     color: "#22c55e" };
+    if (bmi < 30)   return { label: "Overweight",  color: "#eab308" };
     return { label: "Obese", color: "#ef4444" };
   };
 
-  useEffect(() => {
-    if (!settingsLoaded) return;
-    const tdee = getTDEE();
-    if (!tdee) return;
-    const weeklyRateKg = unit === "imperial" ? weeklyRate * 0.453592 : weeklyRate;
-    const dailyDelta = Math.round((weeklyRateKg * 7700) / 7);
-    let targetCalories = tdee;
-    if (weightGoal === "lose") targetCalories = Math.max(1200, tdee - dailyDelta);
-    if (weightGoal === "gain") targetCalories = tdee + dailyDelta;
-    const protein = Math.round((targetCalories * 0.30) / 4);
-    const fat = Math.round((targetCalories * 0.25) / 9);
-    const carbs = Math.round((targetCalories * 0.45) / 4);
-    setGoals({ calories: targetCalories, protein, carbs, fat });
-  }, [activity, weightGoal, weeklyRate, health, profile.age, profile.gender, unit, settingsLoaded]);
-
-  const bmi = getBMI();
-  const bmr = getBMR();
-  const tdee = getTDEE();
+  const bmi     = getBMI();
+  const bmr     = getBMR();
+  const tdee    = getTDEE();
   const bmiInfo = getBMILabel(bmi);
 
   const handleSave = async () => {
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL;
       const token = sessionStorage.getItem("token");
       const payload = { profile, health, goals, activity, unit, weightGoal, weeklyRate };
 
-      const response = await fetch(`${backendUrl}/settings`, {
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/settings`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -185,8 +220,10 @@ export const Settings = () => {
         },
         body: JSON.stringify(payload),
       });
+
       if (response.ok) {
-        dispatch({ type: "set_goals", payload: goals });
+        // Update global store with new goals and name
+        dispatch({ type: "set_goals",   payload: goals });
         dispatch({ type: "update_user", payload: { full_name: profile.name } });
 
         setSaved(true);
@@ -235,10 +272,12 @@ export const Settings = () => {
             <div className="settings-field">
               <label className="field-label">Full Name</label>
               <input className="field-input" type="text" placeholder="Jorge"
-                value={profile.name} onChange={(e) => setProfile({ ...profile, name: e.target.value })} />
+                value={profile.name}
+                onChange={(e) => setProfile({ ...profile, name: e.target.value })} />
             </div>
             <div className="settings-field">
               <label className="field-label">Email</label>
+              {/* Email is read-only — pulled from the store */}
               <input
                 className="field-input"
                 type="email"
@@ -251,7 +290,8 @@ export const Settings = () => {
               <div className="settings-field">
                 <label className="field-label">Age</label>
                 <input className="field-input" type="number" placeholder="25"
-                  value={profile.age} onChange={(e) => setProfile({ ...profile, age: e.target.value })} />
+                  value={profile.age}
+                  onChange={(e) => setProfile({ ...profile, age: e.target.value })} />
               </div>
               <div className="settings-field">
                 <label className="field-label">Gender</label>
@@ -280,18 +320,44 @@ export const Settings = () => {
                 <div className="settings-field">
                   <label className="field-label">Weight (lbs)</label>
                   <input className="field-input" type="number" placeholder="170"
-                    value={health.weight} onChange={(e) => setHealth({ ...health, weight: e.target.value })} />
+                    value={health.weight}
+                    onChange={(e) => {
+                      setHealth({ ...health, weight: e.target.value });
+                      // Update metric reference when user types in imperial
+                      const kg = parseFloat(e.target.value) * 0.453592;
+                      setMetricHealth(prev => ({ ...prev, weight_kg: isNaN(kg) ? null : Math.round(kg * 10) / 10 }));
+                    }} />
                 </div>
                 <div className="settings-field-row">
                   <div className="settings-field">
                     <label className="field-label">Height (ft)</label>
                     <input className="field-input" type="number" placeholder="5"
-                      value={health.height_ft} onChange={(e) => setHealth({ ...health, height_ft: e.target.value })} />
+                      value={health.height_ft}
+                      onChange={(e) => {
+                        const newHealth = { ...health, height_ft: e.target.value };
+                        setHealth(newHealth);
+                        // Update metric reference when user types ft
+                        const ft  = parseFloat(e.target.value);
+                        const inc = parseFloat(health.height_in);
+                        if (!isNaN(ft) && !isNaN(inc)) {
+                          setMetricHealth(prev => ({ ...prev, height_cm: Math.round((ft * 12 + inc) * 2.54) }));
+                        }
+                      }} />
                   </div>
                   <div className="settings-field">
                     <label className="field-label">Height (in)</label>
                     <input className="field-input" type="number" placeholder="11"
-                      value={health.height_in} onChange={(e) => setHealth({ ...health, height_in: e.target.value })} />
+                      value={health.height_in}
+                      onChange={(e) => {
+                        const newHealth = { ...health, height_in: e.target.value };
+                        setHealth(newHealth);
+                        // Update metric reference when user types inches
+                        const ft  = parseFloat(health.height_ft);
+                        const inc = parseFloat(e.target.value);
+                        if (!isNaN(ft) && !isNaN(inc)) {
+                          setMetricHealth(prev => ({ ...prev, height_cm: Math.round((ft * 12 + inc) * 2.54) }));
+                        }
+                      }} />
                   </div>
                 </div>
               </>
@@ -300,12 +366,22 @@ export const Settings = () => {
                 <div className="settings-field">
                   <label className="field-label">Weight (kg)</label>
                   <input className="field-input" type="number" placeholder="77"
-                    value={health.weight_kg} onChange={(e) => setHealth({ ...health, weight_kg: e.target.value })} />
+                    value={health.weight_kg}
+                    onChange={(e) => {
+                      setHealth({ ...health, weight_kg: e.target.value });
+                      // Update metric reference when user types in metric
+                      setMetricHealth(prev => ({ ...prev, weight_kg: parseFloat(e.target.value) || null }));
+                    }} />
                 </div>
                 <div className="settings-field">
                   <label className="field-label">Height (cm)</label>
                   <input className="field-input" type="number" placeholder="180"
-                    value={health.height_cm} onChange={(e) => setHealth({ ...health, height_cm: e.target.value })} />
+                    value={health.height_cm}
+                    onChange={(e) => {
+                      setHealth({ ...health, height_cm: e.target.value });
+                      // Update metric reference when user types in metric
+                      setMetricHealth(prev => ({ ...prev, height_cm: parseFloat(e.target.value) || null }));
+                    }} />
                 </div>
               </>
             )}
@@ -346,10 +422,10 @@ export const Settings = () => {
           <div className="settings-section-label">Activity Level</div>
           <div className="activity-options">
             {[
-              { key: "sedentary", label: "Sedentary", desc: "Little or no exercise" },
-              { key: "light", label: "Light", desc: "Exercise 1–3 days/week" },
-              { key: "moderate", label: "Moderate", desc: "Exercise 3–5 days/week" },
-              { key: "active", label: "Active", desc: "Exercise 6–7 days/week" },
+              { key: "sedentary",   label: "Sedentary",   desc: "Little or no exercise" },
+              { key: "light",       label: "Light",       desc: "Exercise 1–3 days/week" },
+              { key: "moderate",    label: "Moderate",    desc: "Exercise 3–5 days/week" },
+              { key: "active",      label: "Active",      desc: "Exercise 6–7 days/week" },
               { key: "very_active", label: "Very Active", desc: "Hard exercise + physical job" },
             ].map((a) => (
               <div key={a.key}
@@ -413,9 +489,9 @@ export const Settings = () => {
           <div className="settings-section-label">Weight Goal</div>
           <div className="weight-goal-options">
             {[
-              { key: "lose", label: "Lose Weight", icon: "↓", color: "#3b82f6" },
+              { key: "lose",     label: "Lose Weight",     icon: "↓", color: "#3b82f6" },
               { key: "maintain", label: "Maintain Weight", icon: "→", color: "#22c55e" },
-              { key: "gain", label: "Gain Weight", icon: "↑", color: "#f97316" },
+              { key: "gain",     label: "Gain Weight",     icon: "↑", color: "#f97316" },
             ].map((w) => (
               <div key={w.key}
                 className={`weight-goal-option ${weightGoal === w.key ? "active" : ""}`}
@@ -469,9 +545,9 @@ export const Settings = () => {
           <div className="settings-fields" style={{ marginTop: 16 }}>
             {[
               { key: "calories", label: "Calories", unit: "kcal", min: 1000, max: 5000, step: 50 },
-              { key: "protein", label: "Protein", unit: "g", min: 0, max: 300, step: 5 },
-              { key: "carbs", label: "Carbs", unit: "g", min: 0, max: 600, step: 5 },
-              { key: "fat", label: "Fat", unit: "g", min: 0, max: 200, step: 5 },
+              { key: "protein",  label: "Protein",  unit: "g",    min: 0,    max: 300,  step: 5  },
+              { key: "carbs",    label: "Carbs",    unit: "g",    min: 0,    max: 600,  step: 5  },
+              { key: "fat",      label: "Fat",      unit: "g",    min: 0,    max: 200,  step: 5  },
             ].map((g) => (
               <div key={g.key} className="goal-slider-row">
                 <div className="goal-slider-header">
