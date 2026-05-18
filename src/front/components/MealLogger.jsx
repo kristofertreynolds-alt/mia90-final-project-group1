@@ -9,7 +9,7 @@ async function analyzeWithClaude(description, mealType, imageBase64 = null, medi
   //const token = localStorage.getItem("token");
   const token = sessionStorage.getItem("token");
 
-  const response = await fetch(`${backendUrl}/api/analyze-meal`, {
+  const response = await fetch(`${backendUrl}/analyze-meal`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
