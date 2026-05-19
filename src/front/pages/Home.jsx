@@ -72,6 +72,7 @@ export const Home = () => {
       type: "set_goals",
       payload: body.goals 
     });
+    dispatch({ type: "set_settings", payload: body });
 
         if (body.profile?.name) {
       dispatch({ type: "update_user", payload: { full_name: body.profile.name } });

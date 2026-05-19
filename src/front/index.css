@@ -101,6 +101,46 @@ body {
   animation: fadeUp 0.5s ease both;
   animation-delay: 0.18s;
 }
+
+/* Meal photo preview */
+.meal-photo-preview {
+  position: relative;
+  margin-bottom: 12px;
+  border-radius: 12px;
+  overflow: hidden;
+  max-height: 200px;
+}
+
+.meal-photo-img {
+  width: 100%;
+  max-height: 200px;
+  object-fit: contain;
+  object-position: center;
+  display: block;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.meal-photo-remove {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.5);
+  border: none;
+  border-radius: 50%;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.meal-photo-remove:hover {
+  background: rgba(0, 0, 0, 0.7);
+}
+
 .macros-card {
   animation: fadeUp 0.5s ease both;
   animation-delay: 0.24s;
@@ -1444,6 +1484,7 @@ body {
   width: 72px;
   height: 72px;
   border-radius: 50%;
+  overflow: hidden;
   cursor: pointer;
   flex-shrink: 0;
 }
@@ -1453,6 +1494,7 @@ body {
   height: 72px;
   border-radius: 50%;
   object-fit: cover;
+  object-position: center;
   border: 3px solid rgba(255, 255, 255, 0.7);
 }
 

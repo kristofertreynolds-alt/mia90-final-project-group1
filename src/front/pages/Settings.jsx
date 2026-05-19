@@ -1,10 +1,21 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import useGlobalReducer from "../hooks/useGlobalReducer";
+import { calculateStreak } from "../utils/streak";
+
+// Returns initials from full name
+const getInitials = (fullName) => {
+  if (!fullName) return "";
+  const parts = fullName.trim().split(" ");
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+  return (parts[0].charAt(0) + parts[1].charAt(0)).toUpperCase();
+};
 
 export const Settings = () => {
   const navigate = useNavigate();
   const { store, dispatch } = useGlobalReducer();
+  const fileRef = useRef(null);
+  const [photo, setPhoto] = useState(null);
   const [saved, setSaved] = useState(false);
   const [unit, setUnit] = useState("imperial");
   const [settingsLoaded, setSettingsLoaded] = useState(false);
@@ -24,6 +35,7 @@ export const Settings = () => {
     height_in: "",
     height_cm: "",
     weight_kg: "",
+    target_weight: "",
   });
 
   const [goals, setGoals] = useState({
@@ -45,6 +57,42 @@ export const Settings = () => {
     very_active: 1.9,
   };
 
+  // Calculate streak from meals in store
+  const streak = calculateStreak(store.meals);
+  const initials = getInitials(store.user?.full_name);
+
+  // Goal color and label based on weight goal
+  const goalLabel = { lose: "Weight Loss", gain: "Weight Gain", maintain: "Maintenance" }[weightGoal] || "Maintenance";
+  const goalColor = { lose: "#3b82f6", gain: "#f97316", maintain: "#22c55e" }[weightGoal] || "#22c55e";
+
+  // Current and target weight for display
+  const currentWeightKg = metricHealth.weight_kg;
+  const targetWeightKg  = health.target_weight ? (unit === "imperial"
+    ? parseFloat(health.target_weight) * 0.453592
+    : parseFloat(health.target_weight)) : null;
+
+  const currentWeightDisplay = currentWeightKg
+    ? unit === "imperial" ? Math.round(currentWeightKg / 0.453592) : Math.round(currentWeightKg * 10) / 10
+    : null;
+
+  const targetWeightDisplay = targetWeightKg
+    ? unit === "imperial" ? Math.round(targetWeightKg / 0.453592) : Math.round(targetWeightKg * 10) / 10
+    : null;
+
+  // Goal progress calculations
+  const weightDiff  = currentWeightDisplay && targetWeightDisplay ? Math.abs(currentWeightDisplay - targetWeightDisplay) : 0;
+  const weeksNeeded = weeklyRate ? Math.ceil(weightDiff / weeklyRate) : 0;
+  const daysLeft    = weeksNeeded * 7;
+  const progressPct = currentWeightDisplay && targetWeightDisplay && weightDiff > 0
+    ? Math.min(Math.round((5 / weightDiff) * 100), 100)
+    : 0;
+
+  const targetDate = new Date();
+  targetDate.setDate(targetDate.getDate() + daysLeft);
+  const targetDateStr = targetDate.toLocaleDateString("en-US", {
+    month: "long", day: "numeric", year: "numeric",
+  });
+
   // Load settings from backend on mount
   useEffect(() => {
     const fetchSettings = async () => {
@@ -64,7 +112,7 @@ export const Settings = () => {
           });
 
           if (data.health) {
-            const { weight_kg, height_cm } = data.health;
+            const { weight_kg, height_cm, target_weight } = data.health;
 
             // Save metric reference for unit conversion
             setMetricHealth({
@@ -75,17 +123,21 @@ export const Settings = () => {
             // Display values based on user's preferred unit
             if (data.unit === "imperial") {
               setHealth({
-                weight:    weight_kg ? Math.round(weight_kg / 0.453592) : "",
-                height_ft: height_cm ? Math.floor((height_cm / 2.54) / 12) : "",
-                height_in: height_cm ? Math.round((height_cm / 2.54) % 12) : "",
-                height_cm: "",
-                weight_kg: "",
+                weight:         weight_kg    ? Math.round(weight_kg / 0.453592)                      : "",
+                height_ft:      height_cm    ? Math.floor((height_cm / 2.54) / 12)                  : "",
+                height_in:      height_cm    ? Math.round((height_cm / 2.54) % 12)                  : "",
+                height_cm:      "",
+                weight_kg:      "",
+                target_weight:  target_weight ? Math.round(target_weight / 0.453592)                 : "",
               });
             } else {
               setHealth({
-                weight: "", height_ft: "", height_in: "",
-                height_cm: height_cm || "",
-                weight_kg: weight_kg || "",
+                weight:        "",
+                height_ft:     "",
+                height_in:     "",
+                height_cm:     height_cm     || "",
+                weight_kg:     weight_kg     || "",
+                target_weight: target_weight || "",
               });
             }
           }
@@ -96,7 +148,6 @@ export const Settings = () => {
           if (data.weightGoal) setWeightGoal(data.weightGoal);
           if (data.weeklyRate) setWeeklyRate(data.weeklyRate);
 
-          // Mark settings as loaded to allow goal auto-calculation
           setSettingsLoaded(true);
         }
       } catch (err) {
@@ -112,32 +163,37 @@ export const Settings = () => {
     if (!settingsLoaded) return;
 
     if (unit === "imperial") {
-      // Convert from metric reference to imperial for display
-      setHealth({
-        weight:    metricHealth.weight_kg ? Math.round(metricHealth.weight_kg / 0.453592) : "",
-        height_ft: metricHealth.height_cm ? Math.floor((metricHealth.height_cm / 2.54) / 12) : "",
-        height_in: metricHealth.height_cm ? Math.round((metricHealth.height_cm / 2.54) % 12) : "",
-        height_cm: "",
-        weight_kg: "",
-      });
+      setHealth(prev => ({
+        weight:        metricHealth.weight_kg ? Math.round(metricHealth.weight_kg / 0.453592)          : "",
+        height_ft:     metricHealth.height_cm ? Math.floor((metricHealth.height_cm / 2.54) / 12)       : "",
+        height_in:     metricHealth.height_cm ? Math.round((metricHealth.height_cm / 2.54) % 12)       : "",
+        height_cm:     "",
+        weight_kg:     "",
+        target_weight: prev.target_weight && metricHealth.weight_kg
+          ? Math.round(parseFloat(prev.target_weight) / 0.453592)
+          : prev.target_weight,
+      }));
     } else {
-      // Convert from metric reference to metric for display
-      setHealth({
-        weight: "", height_ft: "", height_in: "",
-        weight_kg: metricHealth.weight_kg || "",
-        height_cm: metricHealth.height_cm || "",
-      });
+      setHealth(prev => ({
+        weight:        "",
+        height_ft:     "",
+        height_in:     "",
+        weight_kg:     metricHealth.weight_kg || "",
+        height_cm:     metricHealth.height_cm || "",
+        target_weight: prev.target_weight && metricHealth.weight_kg
+          ? Math.round(parseFloat(prev.target_weight) * 0.453592 * 10) / 10
+          : prev.target_weight,
+      }));
     }
   }, [unit]);
 
   // Auto-calculate goals based on profile — only after settings are loaded
   useEffect(() => {
     if (!settingsLoaded) return;
-
     const tdee = getTDEE();
     if (!tdee) return;
     const weeklyRateKg = unit === "imperial" ? weeklyRate * 0.453592 : weeklyRate;
-    const dailyDelta = Math.round((weeklyRateKg * 7700) / 7);
+    const dailyDelta   = Math.round((weeklyRateKg * 7700) / 7);
     let targetCalories = tdee;
     if (weightGoal === "lose") targetCalories = Math.max(1200, tdee - dailyDelta);
     if (weightGoal === "gain") targetCalories = tdee + dailyDelta;
@@ -177,8 +233,8 @@ export const Settings = () => {
   const getBMR = () => {
     const weightKg = getWeightKg();
     const heightCm = getHeightCm();
-    const age    = parseFloat(profile.age);
-    const gender = profile.gender;
+    const age      = parseFloat(profile.age);
+    const gender   = profile.gender;
     if (!weightKg || !heightCm || !age || !gender) return null;
     if (gender === "male") {
       return Math.round(88.362 + 13.397 * weightKg + 4.799 * heightCm - 5.677 * age);
@@ -207,9 +263,53 @@ export const Settings = () => {
   const tdee    = getTDEE();
   const bmiInfo = getBMILabel(bmi);
 
+const handlePhotoChange = (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const img = new Image();
+    img.onload = () => {
+      // Create a canvas to resize the image
+      const canvas = document.createElement("canvas");
+      const MAX_SIZE = 300; // max width and height in pixels
+
+      // Calculate new dimensions keeping aspect ratio
+      let width  = img.width;
+      let height = img.height;
+
+      if (width > height) {
+        if (width > MAX_SIZE) {
+          height = Math.round((height * MAX_SIZE) / width);
+          width  = MAX_SIZE;
+        }
+      } else {
+        if (height > MAX_SIZE) {
+          width  = Math.round((width * MAX_SIZE) / height);
+          height = MAX_SIZE;
+        }
+      }
+
+      canvas.width  = width;
+      canvas.height = height;
+
+      // Draw resized image on canvas
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, width, height);
+
+      // Convert canvas to base64 with 80% quality
+      const compressed = canvas.toDataURL("image/jpeg", 0.8);
+      setPhoto(compressed);
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+};
+
   const handleSave = async () => {
     try {
-      const token = sessionStorage.getItem("token");
+      const token   = sessionStorage.getItem("token");
       const payload = { profile, health, goals, activity, unit, weightGoal, weeklyRate };
 
       const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/settings`, {
@@ -222,10 +322,9 @@ export const Settings = () => {
       });
 
       if (response.ok) {
-        // Update global store with new goals and name
         dispatch({ type: "set_goals",   payload: goals });
         dispatch({ type: "update_user", payload: { full_name: profile.name } });
-
+        dispatch({ type: "set_settings", payload: { unit, weightGoal, weeklyRate, health } });
         setSaved(true);
         setTimeout(() => setSaved(false), 3000);
       }
@@ -250,6 +349,34 @@ export const Settings = () => {
           <button className="settings-save-btn" onClick={handleSave}>
             {saved ? "✓ Saved!" : "Save"}
           </button>
+        </div>
+
+        {/* 0. Profile Hero — above Units */}
+        <div className="settings-card profile-hero-card">
+          <div className="profile-photo-wrap" onClick={() => fileRef.current.click()}>
+            {photo ? (
+              <img src={photo} alt="Profile" className="profile-photo" />
+            ) : (
+              <div className="profile-initials">{initials || "?"}</div>
+            )}
+            <div className="profile-photo-overlay">
+              <svg width="18" height="18" fill="none" stroke="white" strokeWidth="2" viewBox="0 0 24 24">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                <circle cx="12" cy="13" r="4"/>
+              </svg>
+            </div>
+            <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handlePhotoChange} />
+          </div>
+          <div className="profile-hero-info">
+            <h2 className="profile-name">{store.user?.full_name || ""}</h2>
+            <div className="profile-goal-pill" style={{ background: `${goalColor}18`, color: goalColor }}>
+              {goalLabel} Goal
+            </div>
+          </div>
+          <div className="profile-streak-wrap">
+            <div className="profile-streak-number">🔥 {streak}</div>
+            <div className="profile-streak-label">day streak</div>
+          </div>
         </div>
 
         {/* 1. Units */}
@@ -277,7 +404,6 @@ export const Settings = () => {
             </div>
             <div className="settings-field">
               <label className="field-label">Email</label>
-              {/* Email is read-only — pulled from the store */}
               <input
                 className="field-input"
                 type="email"
@@ -318,15 +444,20 @@ export const Settings = () => {
             {unit === "imperial" ? (
               <>
                 <div className="settings-field">
-                  <label className="field-label">Weight (lbs)</label>
+                  <label className="field-label">Current Weight (lbs)</label>
                   <input className="field-input" type="number" placeholder="170"
                     value={health.weight}
                     onChange={(e) => {
                       setHealth({ ...health, weight: e.target.value });
-                      // Update metric reference when user types in imperial
                       const kg = parseFloat(e.target.value) * 0.453592;
                       setMetricHealth(prev => ({ ...prev, weight_kg: isNaN(kg) ? null : Math.round(kg * 10) / 10 }));
                     }} />
+                </div>
+                <div className="settings-field">
+                  <label className="field-label">Target Weight (lbs)</label>
+                  <input className="field-input" type="number" placeholder="150"
+                    value={health.target_weight}
+                    onChange={(e) => setHealth({ ...health, target_weight: e.target.value })} />
                 </div>
                 <div className="settings-field-row">
                   <div className="settings-field">
@@ -336,7 +467,6 @@ export const Settings = () => {
                       onChange={(e) => {
                         const newHealth = { ...health, height_ft: e.target.value };
                         setHealth(newHealth);
-                        // Update metric reference when user types ft
                         const ft  = parseFloat(e.target.value);
                         const inc = parseFloat(health.height_in);
                         if (!isNaN(ft) && !isNaN(inc)) {
@@ -351,7 +481,6 @@ export const Settings = () => {
                       onChange={(e) => {
                         const newHealth = { ...health, height_in: e.target.value };
                         setHealth(newHealth);
-                        // Update metric reference when user types inches
                         const ft  = parseFloat(health.height_ft);
                         const inc = parseFloat(e.target.value);
                         if (!isNaN(ft) && !isNaN(inc)) {
@@ -364,14 +493,19 @@ export const Settings = () => {
             ) : (
               <>
                 <div className="settings-field">
-                  <label className="field-label">Weight (kg)</label>
+                  <label className="field-label">Current Weight (kg)</label>
                   <input className="field-input" type="number" placeholder="77"
                     value={health.weight_kg}
                     onChange={(e) => {
                       setHealth({ ...health, weight_kg: e.target.value });
-                      // Update metric reference when user types in metric
                       setMetricHealth(prev => ({ ...prev, weight_kg: parseFloat(e.target.value) || null }));
                     }} />
+                </div>
+                <div className="settings-field">
+                  <label className="field-label">Target Weight (kg)</label>
+                  <input className="field-input" type="number" placeholder="70"
+                    value={health.target_weight}
+                    onChange={(e) => setHealth({ ...health, target_weight: e.target.value })} />
                 </div>
                 <div className="settings-field">
                   <label className="field-label">Height (cm)</label>
@@ -379,7 +513,6 @@ export const Settings = () => {
                     value={health.height_cm}
                     onChange={(e) => {
                       setHealth({ ...health, height_cm: e.target.value });
-                      // Update metric reference when user types in metric
                       setMetricHealth(prev => ({ ...prev, height_cm: parseFloat(e.target.value) || null }));
                     }} />
                 </div>
@@ -574,7 +707,83 @@ export const Settings = () => {
           </div>
         </div>
 
-        {/* 9. Danger Zone */}
+        {/* 9. Goal Progress — below Daily Goals */}
+        {currentWeightDisplay && targetWeightDisplay && weightGoal !== "maintain" && (
+          <div className="settings-card">
+            <div className="settings-section-label">Goal Progress</div>
+            <div className="goal-progress-hero">
+              <div className="goal-progress-weights">
+                <div className="goal-weight-item">
+                  <div className="goal-weight-value">{currentWeightDisplay}</div>
+                  <div className="goal-weight-label">Current {unit === "imperial" ? "lbs" : "kg"}</div>
+                </div>
+                <div className="goal-progress-arrow">
+                  <svg width="32" height="16" fill="none" viewBox="0 0 32 16">
+                    <path d="M0 8h28M22 2l8 6-8 6" stroke={goalColor} strokeWidth="2.5" strokeLinecap="round"/>
+                  </svg>
+                </div>
+                <div className="goal-weight-item">
+                  <div className="goal-weight-value" style={{ color: goalColor }}>{targetWeightDisplay}</div>
+                  <div className="goal-weight-label">Target {unit === "imperial" ? "lbs" : "kg"}</div>
+                </div>
+              </div>
+              <div className="goal-progress-bar-wrap">
+                <div className="goal-progress-bar-bg">
+                  <div className="goal-progress-bar-fill" style={{ width: `${progressPct}%`, background: goalColor }} />
+                </div>
+                <div className="goal-progress-pct" style={{ color: goalColor }}>{progressPct}% there</div>
+              </div>
+              <div className="goal-timeline-card" style={{ borderColor: `${goalColor}30`, background: `${goalColor}08` }}>
+                <div className="goal-timeline-row">
+                  <div className="goal-timeline-item">
+                    <div className="goal-timeline-value">{weightDiff}</div>
+                    <div className="goal-timeline-label">{unit === "imperial" ? "lbs" : "kg"} to go</div>
+                  </div>
+                  <div className="goal-timeline-divider" />
+                  <div className="goal-timeline-item">
+                    <div className="goal-timeline-value">{daysLeft}</div>
+                    <div className="goal-timeline-label">days left</div>
+                  </div>
+                  <div className="goal-timeline-divider" />
+                  <div className="goal-timeline-item">
+                    <div className="goal-timeline-value" style={{ fontSize: "0.9rem" }}>{weeklyRate}</div>
+                    <div className="goal-timeline-label">{unit === "imperial" ? "lbs" : "kg"}/week</div>
+                  </div>
+                </div>
+                <div className="goal-target-date">
+                  <svg width="13" height="13" fill="none" stroke={goalColor} strokeWidth="2" viewBox="0 0 24 24">
+                    <rect x="3" y="4" width="18" height="18" rx="2"/>
+                    <line x1="16" y1="2" x2="16" y2="6"/>
+                    <line x1="8" y1="2" x2="8" y2="6"/>
+                    <line x1="3" y1="10" x2="21" y2="10"/>
+                  </svg>
+                  Target date: <strong>{targetDateStr}</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 10. Daily Targets — below Goal Progress */}
+        <div className="settings-card">
+          <div className="settings-section-label">Daily Targets</div>
+          <div className="profile-targets-grid">
+            {[
+              { label: "Calories", value: goals.calories, unit: "kcal", color: "#f97316" },
+              { label: "Protein",  value: goals.protein,  unit: "g",    color: "#3b82f6" },
+              { label: "Carbs",    value: goals.carbs,    unit: "g",    color: "#eab308" },
+              { label: "Fat",      value: goals.fat,      unit: "g",    color: "#a855f7" },
+            ].map((t) => (
+              <div key={t.label} className="profile-target-card">
+                <div className="profile-target-value" style={{ color: t.color }}>{t.value}</div>
+                <div className="profile-target-unit">{t.unit}</div>
+                <div className="profile-target-label">{t.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 11. Danger Zone */}
         <div className="settings-card settings-danger-card">
           <div className="settings-section-label" style={{ color: "#ef4444" }}>Danger Zone</div>
           <p className="danger-desc">These actions are permanent and cannot be undone.</p>

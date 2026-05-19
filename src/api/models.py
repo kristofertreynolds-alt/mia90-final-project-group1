@@ -1,6 +1,7 @@
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import String, Boolean, Float, Integer, ForeignKey
+from sqlalchemy import String, Boolean, Float, Integer, ForeignKey, Date
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from datetime import date as DateType
 
 db = SQLAlchemy()
 
@@ -40,6 +41,7 @@ class UserProfile(db.Model):
     activity: Mapped[str] = mapped_column(String(30), nullable=True)
     weight_goal: Mapped[str] = mapped_column(String(30), nullable=True)
     weekly_rate: Mapped[float] = mapped_column(Float(), nullable=True)
+    target_weight: Mapped[float] = mapped_column(Float(), nullable=True)
 
     # Goals
     goal_calories: Mapped[int] = mapped_column(Integer(), nullable=True)
@@ -60,6 +62,7 @@ class UserProfile(db.Model):
             "health": {
                 "weight_kg": self.weight_kg,
                 "height_cm": self.height_cm,
+                "target_weight": self.target_weight,
             },
             "unit":       self.unit,
             "activity":   self.activity,
@@ -80,6 +83,7 @@ class Meal(db.Model):
     type: Mapped[str] = mapped_column(String(20), nullable=True)
     description: Mapped[str] = mapped_column(String(500), nullable=False)
     time: Mapped[str] = mapped_column(String(20), nullable=True)
+    date: Mapped[DateType] = mapped_column(Date(), nullable=True)
 
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="meals")
@@ -92,6 +96,7 @@ class Meal(db.Model):
             "type": self.type,
             "description": self.description,
             "time": self.time,
+            "date": self.date.isoformat() if self.date else None,
             "icon": self._get_icon(),
             "calories": self.nutrition.calories if self.nutrition else 0,
             "protein": self.nutrition.protein if self.nutrition else 0,

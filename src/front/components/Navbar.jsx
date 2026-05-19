@@ -2,9 +2,20 @@ import React from "react";
 import { Link, useNavigate } from "react-router-dom";
 import useGlobalReducer from "../hooks/useGlobalReducer";
 
-export const Navbar = ({ userName = "JD" }) => {
-  const { dispatch } = useGlobalReducer();
+// Returns initials from a full name — "Juan Fernando" → "JF", "Jorge" → "J"
+const getInitials = (fullName) => {
+  if (!fullName) return "";
+  const parts = fullName.trim().split(" ");
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+  return (parts[0].charAt(0) + parts[1].charAt(0)).toUpperCase();
+};
+
+export const Navbar = () => {
+  const { store, dispatch } = useGlobalReducer();
   const navigate = useNavigate();
+
+  const initials = getInitials(store.user?.full_name);
+  const email    = store.user?.email || "";
 
   const handleLogout = () => {
     dispatch({ type: "logout" });
@@ -31,16 +42,18 @@ export const Navbar = ({ userName = "JD" }) => {
       </Link>
 
       <div className="nav-avatar-wrap">
+        {/* Avatar shows initials from full name */}
         <div className="nav-avatar">
-          {userName}
+          {initials}
         </div>
 
         <div className="nav-dropdown">
           <div className="nav-dropdown-header">
-            <div className="nav-dropdown-avatar">{userName}</div>
+            {/* Dropdown avatar also uses initials */}
+            <div className="nav-dropdown-avatar">{initials}</div>
             <div>
-              <div className="nav-dropdown-name">My Account</div>
-              <div className="nav-dropdown-email">user@email.com</div>
+              <div className="nav-dropdown-name">{store.user?.full_name || "My Account"}</div>
+              <div className="nav-dropdown-email">{email}</div>
             </div>
           </div>
 
@@ -52,14 +65,6 @@ export const Navbar = ({ userName = "JD" }) => {
               <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
             </svg>
             Settings
-          </Link>
-
-          <Link to="/profile" className="nav-dropdown-item">
-            <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-              <circle cx="12" cy="7" r="4"/>
-            </svg>
-            Profile
           </Link>
 
           <div className="nav-dropdown-divider" />

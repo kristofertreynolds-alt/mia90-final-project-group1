@@ -4,7 +4,8 @@ export const initialStore = () => {
     meals: [],
     token: sessionStorage.getItem("token") || null,
     user: JSON.parse(sessionStorage.getItem("user")) || null,
-    dailyGoals: { calories: 2000, protein: 150, carbs: 250, fat: 65 }
+    dailyGoals: { calories: 2000, protein: 150, carbs: 250, fat: 65 },
+    settings: null,
   }
 }
 
@@ -37,6 +38,8 @@ export default function storeReducer(store, action = {}) {
         ...store,
         user: { ...store.user, ...action.payload }
     };
+    case 'set_settings':
+    return { ...store, settings: action.payload };
 
     default:
       throw Error('Unknown action.');

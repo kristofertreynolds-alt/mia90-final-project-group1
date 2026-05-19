@@ -3,6 +3,7 @@ This module takes care of starting the API Server, Loading the DB and Adding the
 """
 from flask import Flask, request, jsonify, url_for, Blueprint
 from api.models import db, User, Meal, Nutrition, UserProfile
+from datetime import date as today_date
 from api.utils import generate_sitemap, APIException
 from flask_cors import CORS
 from sqlalchemy import select
@@ -225,7 +226,8 @@ def analyze_meal():
         meal = Meal(
             user_id = user.id, 
             type = name,
-            description = nutrition.get("description") or description
+            description = nutrition.get("description") or description,
+            date=today_date.today()
         )
         db.session.add(meal)
         db.session.commit()
@@ -290,7 +292,7 @@ def save_settings():
     if not body:
         return jsonify({"msg": "No data provided"}), 400
 
-    
+    # Create profile if user doesn't have one yet
     if not user.profile:
         user.profile = UserProfile(user_id=user.id)
         db.session.add(user.profile)
@@ -309,7 +311,7 @@ def save_settings():
     user.profile.weight_goal = body.get("weightGoal", user.profile.weight_goal)
     user.profile.weekly_rate = body.get("weeklyRate", user.profile.weekly_rate)
 
-    # Body 
+    # Body — convert to metric before saving
     if unit == "imperial":
         weight_lbs = health.get("weight")
         height_ft  = health.get("height_ft")
@@ -327,9 +329,17 @@ def save_settings():
                 user.profile.height_cm = round(total_inches * 2.54, 2)
             except (ValueError, TypeError):
                 pass
+
+        # Target weight — convert lbs to kg before saving
+        if health.get("target_weight"):
+            try:
+                user.profile.target_weight = round(float(health.get("target_weight")) * 0.453592, 2)
+            except (ValueError, TypeError):
+                pass
+
     else:
-        weight_kg  = health.get("weight_kg")
-        height_cm  = health.get("height_cm")
+        weight_kg = health.get("weight_kg")
+        height_cm = health.get("height_cm")
 
         if weight_kg:
             try:
@@ -343,6 +353,13 @@ def save_settings():
             except (ValueError, TypeError):
                 pass
 
+        # Target weight — already in kg
+        if health.get("target_weight"):
+            try:
+                user.profile.target_weight = float(health.get("target_weight"))
+            except (ValueError, TypeError):
+                pass
+
     # Goals
     user.profile.goal_calories = goals.get("calories", user.profile.goal_calories)
     user.profile.goal_protein  = goals.get("protein",  user.profile.goal_protein)
@@ -351,3 +368,39 @@ def save_settings():
 
     db.session.commit()
     return jsonify({"msg": "Settings saved successfully"}), 200
+
+########## STREAK -> GET ##########
+@api.route('/streak', methods=['GET'])
+@jwt_required()
+def get_streak():
+    current_user = get_jwt_identity()
+    user = db.session.execute(
+        select(User).where(User.email == current_user)
+    ).scalar_one_or_none()
+
+    if not user:
+        return jsonify({"streak": 0}), 404
+
+    # Get all meals ordered by date descending
+    meals = db.session.execute(
+        select(Meal).where(Meal.user_id == user.id)
+    ).scalars().all()
+
+    if not meals:
+        return jsonify({"streak": 0}), 200
+
+    # Get unique dates from meals
+    from datetime import date, timedelta
+    meal_dates = set()
+    for meal in meals:
+        if meal.time:
+            meal_dates.add(date.today())  # placeholder until we add date field
+
+    # Count consecutive days
+    streak = 0
+    check_date = date.today()
+    while check_date in meal_dates:
+        streak += 1
+        check_date -= timedelta(days=1)
+
+    return jsonify({"streak": streak}), 200
