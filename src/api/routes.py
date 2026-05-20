@@ -149,6 +149,25 @@ def analyze_meal():
         .where(User.email == userEmail)
     ).scalar_one_or_none()
 
+        # Check daily limit
+    MAX_CALLS = 10 
+    today = today_date.today()
+
+    if user.profile:
+        # Reset counter if it's a new day
+        if user.profile.last_ai_call_date != today:
+            user.profile.daily_ai_calls = 0
+            user.profile.last_ai_call_date = today
+
+        if user.profile.daily_ai_calls >= MAX_CALLS:
+            return jsonify({
+                "msg": f"Daily limit of {MAX_CALLS} AI analyses reached. Try again tomorrow."
+            }), 429  # 429 = Too Many Requests
+
+        # Increment counter
+        user.profile.daily_ai_calls += 1
+        db.session.commit()
+
     body = request.json
     if not body:
         return jsonify({"msg": "No data provided"}), 400
