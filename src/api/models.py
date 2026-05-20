@@ -42,6 +42,8 @@ class UserProfile(db.Model):
     weight_goal: Mapped[str] = mapped_column(String(30), nullable=True)
     weekly_rate: Mapped[float] = mapped_column(Float(), nullable=True)
     target_weight: Mapped[float] = mapped_column(Float(), nullable=True)
+    daily_ai_calls: Mapped[int] = mapped_column(Integer(), nullable=True, default=0)
+    last_ai_call_date: Mapped[DateType] = mapped_column(Date(), nullable=True)
 
     # Goals
     goal_calories: Mapped[int] = mapped_column(Integer(), nullable=True)
